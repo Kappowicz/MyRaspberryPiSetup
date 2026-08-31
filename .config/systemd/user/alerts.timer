@@ -1,0 +1,14 @@
+[Unit]
+Description=Data freshness check, every 5 minutes
+
+[Timer]
+# Delayed after boot: services and containers get time to come up, and any
+# queued notifications go out on the first run anyway.
+OnBootSec=3min
+OnUnitActiveSec=5min
+# Catches up a run missed while the machine was off.
+Persistent=true
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

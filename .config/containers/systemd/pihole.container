@@ -1,0 +1,38 @@
+[Unit]
+Description=Pi-hole DNS Server
+After=network-online.target
+
+[Container]
+Network=host
+Image=docker.io/pihole/pihole:latest
+ContainerName=pihole
+
+# Porty (DNS TCP/UDP + Web Interface)
+#PublishPort=53:53/tcp
+#PublishPort=53:53/udp
+#PublishPort=80:80/tcp
+
+# Zmienne srodowiskowe
+Environment=TZ=Europe/Warsaw
+
+# Wolumeny (dane)
+Volume=%h/pihole/etc-pihole:/etc/pihole
+Volume=%h/pihole/etc-dnsmasq.d:/etc/dnsmasq.d
+
+# DNS settings for the container itself
+DNS=127.0.0.1
+DNS=1.1.1.1
+# Some ISP routers hand out a DHCP search suffix (set DHCP_SEARCH_SUFFIX in
+# ~/.config/site.conf if yours does). c-ares in this image appended it on NODATA
+# and got :: back, because a blocklist rule covered the ISP's own domain; curl
+# then connected to [::]:443 - the panel of this very Pi-hole - and the
+# resulting certificate mismatch broke a blocklist download (2026-07-07).
+# DNSSearch=. stops c-ares from appending anything.
+DNSSearch=.
+
+[Service]
+# Important: DNS should come back up automatically after a failure
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

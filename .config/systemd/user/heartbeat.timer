@@ -1,0 +1,13 @@
+[Unit]
+Description=Puls co 5 minut
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+# Persistent celowo WYLACZONY. Nadrabianie pominietych pukniec po starcie
+# falszowaloby dowod zycia - a to jedyne, co ten timer ma udowadniac.
+Persistent=false
+AccuracySec=20s
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,36 @@
+#!/bin/bash
+# Refuses a commit that carries a secret.
+#
+# The patterns are tuned to THIS system, not generic ones. Files matching
+# *.example are skipped - they are meant to look like secrets without being any.
+#
+# You will slip up eventually. The question is only whether you find out before
+# pushing or after - git remembers forever, and deleting the file in a later
+# commit removes nothing from history.
+set -u
+
+PATTERNS='hc-ping\.com/[0-9a-f]{8}-|ntfy\.sh/malinka-[a-z]+-[0-9a-f]{8}|(INFLUXDB?_TOKEN)=[A-Za-z0-9_-]{20}|GF_SECURITY_ADMIN_PASSWORD=[A-Za-z0-9]{12}|WEBPASSWORD=[A-Za-z0-9]{6}|BALLOON-SHA256'
+
+BAD=0
+for p in $(git diff --cached --name-only --diff-filter=ACM); do
+  # *.example: meant to look like a secret without being one.
+  # .githooks/pre-commit: contains the very patterns it searches for, so without
+  # this exception it would flag itself and block its own first commit.
+  case "$p" in
+    *.example|.githooks/pre-commit) continue ;;
+  esac
+  git show ":$p" 2>/dev/null | grep -nEq "$PATTERNS" || continue
+  echo "SECRET in $p:"
+  git show ":$p" | grep -nE "$PATTERNS" | cut -c1-110 | sed 's/^/    /'
+  BAD=1
+done
+
+if [ "$BAD" = 1 ]; then
+  echo
+  echo "Commit blocked."
+  echo "Secrets belong in ~/.config/secrets (mode 600); only the matching"
+  echo "template under examples/ goes into the repository."
+  echo
+  echo "If this is a false positive - deliberately, not reflexively:  git commit --no-verify"
+  exit 1
+fi

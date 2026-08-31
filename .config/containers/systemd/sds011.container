@@ -1,0 +1,65 @@
+[Unit]
+Description=SDS011 Air Quality Sensor App
+# Makes sure the sensor starts only after the InfluxDB database is up
+After=influxdb.service
+Requires=influxdb.service
+
+[Container]
+ContainerName=sds011
+Image=localhost/sds011:latest
+Network=sensor-net.network
+
+# 1. PASSING THROUGH THE USB DEVICE
+# Required so the script inside the container can see the hardware plugged
+# into the host.
+AddDevice=/dev/ttyUSB0:/dev/ttyUSB0
+
+# 2. APPLICATION FILES
+# Mounts the directory with the Python script. The :Z flag matters for SELinux
+# (if it is enabled).
+Volume=%h/sensor-app:/app:Z
+WorkingDir=/app
+GroupAdd=keep-groups
+# With no DNS= entry the container uses aardvark (10.89.0.1), which forwards
+# queries to the host's resolv.conf, i.e. to Pi-hole - with blocking and DoT.
+# Grafana and influxdb are set up the same way, which is why they never
+# bypassed Pi-hole.
+# Do NOT put DNS=<the host's LAN address> here: that address is pingable from
+# the sensor-net bridge, but FTL does not answer on it, so the container ends up
+# in a restart loop with "Temporary failure in name resolution" (2026-08-29).
+
+# 3. ENVIRONMENT FOR INFLUXDB
+# A name on the container network, not the host's LAN address - same as
+# city-air. Previously the traffic left the host and came back, so a change of
+# the host's address would have killed this container while city-air survived.
+# Verified: systemd-influxdb resolves from inside sds011.
+Environment=INFLUXDB_URL=http://systemd-influxdb:8086
+EnvironmentFile=%h/.config/secrets/influx-apps.env
+# Org, bucket and the location tag come from here.
+EnvironmentFile=%h/.config/site.conf
+
+# 4. STARTUP
+# Run an init process (tini) as PID 1 inside the container.
+#
+# Without it the Python app is PID 1, and the kernel applies no default signal
+# handling to PID 1 - SIGTERM is simply ignored. podman waited 10 seconds, sent
+# SIGKILL, the unit exited 137, systemd called that a failure and OnFailure=
+# fired. Every deliberate restart cost 10 extra seconds and produced a false
+# alarm (2026-08-30). With tini as PID 1 the app is PID 2 and gets normal
+# default SIGTERM behaviour.
+RunInit=yes
+Exec=/bin/sh /app/start.sh
+
+[Service]
+# SIGTERM kills the Python process, so podman reports exit code 143 (128+15).
+# systemd treats that as a failure by default, fires OnFailure= and pages you
+# for every deliberate restart. 143 means "stopped on request" here, not a
+# crash. 137 (SIGKILL) is deliberately NOT listed: that one means the app
+# ignored the stop request and had to be killed - which is worth knowing about.
+SuccessExitStatus=143
+Restart=always
+# Delay between restarts, in case the script fails for lack of connectivity
+RestartSec=5
+
+[Install]
+WantedBy=default.target

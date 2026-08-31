@@ -1,0 +1,7 @@
+[Unit]
+Description=Puls do Healthchecks.io (czujnik martwego czlowieka)
+
+[Service]
+Type=oneshot
+ExecStart=%h/alerts/heartbeat.sh
+TimeoutStartSec=60

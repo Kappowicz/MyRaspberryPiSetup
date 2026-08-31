@@ -1,0 +1,15 @@
+[Container]
+Image=docker.io/grafana/grafana:latest
+Network=sensor-net.network
+Volume=grafana-data:/var/lib/grafana:Z
+PublishPort=3000:3000
+# Attached to the same network so Grafana can see the InfluxDB database
+EnvironmentFile=%h/.config/secrets/grafana.env
+# Org and bucket for the provisioned datasource ($__env{} in provisioning).
+EnvironmentFile=%h/.config/site.conf
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

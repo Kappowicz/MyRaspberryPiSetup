@@ -1,0 +1,2 @@
+influxdb-client>=1.36.1
+tzdata>=2024.1

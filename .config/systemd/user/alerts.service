@@ -1,0 +1,10 @@
+[Unit]
+Description=Data freshness check + flush of any queued notifications
+After=influxdb.service
+
+[Service]
+Type=oneshot
+ExecStart=%h/alerts/check.sh
+# With no network every delivery attempt burns its timeout. 4 minutes with room
+# to spare; the timer runs every 5, so runs cannot overlap.
+TimeoutStartSec=240

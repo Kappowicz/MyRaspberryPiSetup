@@ -1,0 +1,51 @@
+[Unit]
+Description=Air quality fetcher for a public GIOS station
+After=influxdb.service
+Requires=influxdb.service
+
+[Container]
+ContainerName=city-air
+Image=localhost/city-air:latest
+Network=sensor-net.network
+
+# Application files (same as sds011) - no AddDevice, this one is HTTP only
+Volume=%h/city-app:/app:Z
+WorkingDir=/app
+# With no DNS= entry the container uses aardvark (10.89.0.1), which forwards
+# queries to the host's resolv.conf, i.e. to Pi-hole - with blocking and DoT.
+# Grafana and influxdb are set up the same way, which is why they never
+# bypassed Pi-hole.
+# Do NOT put DNS=<the host's LAN address> here: that address is pingable from
+# the sensor-net bridge, but FTL does not answer on it, so the container ends up
+# in a restart loop with "Temporary failure in name resolution" (2026-08-29).
+
+Environment=INFLUXDB_URL=http://systemd-influxdb:8086
+EnvironmentFile=%h/.config/secrets/influx-apps.env
+# Org, bucket, station id and location tag all come from here.
+EnvironmentFile=%h/.config/site.conf
+# GIOS publishes hourly data, so polling more often adds nothing
+Environment=INTERVAL_SECONDS=1800
+
+# Run an init process (tini) as PID 1 inside the container.
+#
+# Without it the Python app is PID 1, and the kernel applies no default signal
+# handling to PID 1 - SIGTERM is simply ignored. podman waited 10 seconds, sent
+# SIGKILL, the unit exited 137, systemd called that a failure and OnFailure=
+# fired. Every deliberate restart cost 10 extra seconds and produced a false
+# alarm (2026-08-30). With tini as PID 1 the app is PID 2 and gets normal
+# default SIGTERM behaviour.
+RunInit=yes
+Exec=/bin/sh /app/start.sh
+
+[Service]
+# SIGTERM kills the Python process, so podman reports exit code 143 (128+15).
+# systemd treats that as a failure by default, fires OnFailure= and pages you
+# for every deliberate restart. 143 means "stopped on request" here, not a
+# crash. 137 (SIGKILL) is deliberately NOT listed: that one means the app
+# ignored the stop request and had to be killed - which is worth knowing about.
+SuccessExitStatus=143
+Restart=always
+RestartSec=15
+
+[Install]
+WantedBy=default.target

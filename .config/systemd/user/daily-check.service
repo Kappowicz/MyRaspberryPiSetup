@@ -1,0 +1,7 @@
+[Unit]
+Description=Dobowa kontrola stanu malinki
+
+[Service]
+Type=oneshot
+ExecStart=%h/alerts/daily-check.sh
+TimeoutStartSec=300

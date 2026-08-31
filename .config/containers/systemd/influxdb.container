@@ -1,0 +1,11 @@
+[Container]
+Image=docker.io/influxdb:2
+Network=sensor-net.network
+Volume=influxdb-data:/var/lib/influxdb2:Z
+PublishPort=8086:8086
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

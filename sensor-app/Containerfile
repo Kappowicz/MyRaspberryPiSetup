@@ -1,0 +1,16 @@
+FROM docker.io/library/python:3.11-slim
+
+# Dependencies are baked into the image so the container does NOT need network
+# access at startup.
+#
+# Previously "pip install" ran on EVERY start. At boot that created a circular
+# dependency: this application resolves names through Pi-hole, which is itself
+# a container and may not be running yet. On 2026-08-29 that ended in a restart
+# loop with "Temporary failure in name resolution".
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt && rm /tmp/requirements.txt
+
+# Application code is deliberately NOT copied in - it is bind-mounted from the
+# host, so a fix in main.py does not require rebuilding the image.
+WORKDIR /app
+CMD ["python", "-u", "/app/main.py"]

@@ -1,0 +1,22 @@
+[Unit]
+Description=unbound jako posrednik DoT dla Pi-hole
+After=network-online.target
+
+[Container]
+Image=docker.io/klutchell/unbound:latest
+ContainerName=unbound
+Network=host
+Volume=%h/unbound/unbound.conf:/etc/unbound/unbound.conf:ro,Z
+# The image daemonises by default and the container then exits with code 0.
+Exec=-d -c /etc/unbound/unbound.conf
+
+[Service]
+
+# Pi-hole kieruje tu CALY ruch wychodzacy, wiec smierc tego kontenera oznacza
+# brak rozwiazywania nazw w calym domu. Czyste wyjscie tez ma konczyc sie
+# restartem - z tego samego powodu co przy samym Pi-hole.
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

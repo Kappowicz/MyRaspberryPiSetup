@@ -1,0 +1,25 @@
+# Site-specific values: the only file that ties this setup to one house.
+# Copied to ~/.config/site.conf by install.sh; that copy is never committed.
+#
+# Read both as a shell file (by alerts.conf) and as a systemd EnvironmentFile
+# (by the quadlets), so: KEY=value, no quotes, no expansion, no spaces.
+
+# --- InfluxDB ---------------------------------------------------------------
+INFLUXDB_ORG=home
+INFLUXDB_BUCKET=air
+
+# --- Air quality ------------------------------------------------------------
+# The nearest GIOS measuring station (Poland). Find yours by name at
+# https://powietrze.gios.gov.pl/pjp/current — the station id is in the URL.
+GIOS_STATION_ID=PASTE_STATION_ID_HERE
+# Tag written to InfluxDB for the public station's data...
+LOCATION=city
+# ...and for your own SDS011 sensor. These two are what the Grafana dashboard
+# filters on; change them here and install.sh re-renders the dashboard.
+SENSOR_LOCATION=home
+
+# --- Network ----------------------------------------------------------------
+# The DHCP search suffix your ISP router hands out, if any. Pi-hole needs
+# DNSSearch=. so c-ares does not append it to failed lookups; healthcheck.sh
+# verifies the workaround still holds. Leave empty if your router sets none.
+DHCP_SEARCH_SUFFIX=

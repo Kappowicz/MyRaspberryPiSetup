@@ -1,0 +1,16 @@
+apiVersion: 1
+datasources:
+  - name: influxdb
+    type: influxdb
+    access: proxy
+    url: http://systemd-influxdb:8086
+    isDefault: true
+    jsonData:
+      version: Flux
+      organization: $__env{INFLUXDB_ORG}
+      defaultBucket: $__env{INFLUXDB_BUCKET}
+      httpMode: POST
+    secureJsonData:
+      # Taken from an environment variable of the Grafana container.
+      # Add to ~/.config/secrets/grafana.env: INFLUXDB_TOKEN=<read token>
+      token: $__env{INFLUXDB_TOKEN}

@@ -1,0 +1,15 @@
+[Unit]
+Description=Serwer WWW (Nginx)
+After=network-online.target
+
+[Container]
+Image=docker.io/library/nginx:alpine
+ContainerName=server-www
+PublishPort=8080:80
+Volume=%h/sample-site:/usr/share/nginx/html
+
+[Service]
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

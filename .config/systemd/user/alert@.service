@@ -1,0 +1,7 @@
+[Unit]
+Description=Failure notification for unit %i
+
+[Service]
+Type=oneshot
+ExecStart=%h/alerts/unit-failed.sh %i
+TimeoutStartSec=120
