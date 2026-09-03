@@ -13,7 +13,7 @@ Containers run **rootless** via podman + quadlets, as user services.
 |---|---|
 | `.config/containers/systemd/` | quadlets — container definitions |
 | `.config/systemd/user/` | alert timers, `alert@.service`, `OnFailure=` drop-ins |
-| `alerts/` | the alerting engine: `check.sh`, `heartbeat.sh`, `unit-failed.sh`, `acl_check.py` |
+| `alerts/` | the alerting engine: `check.sh`, `heartbeat.sh`, `unit-failed.sh`, `acl_check.py`, `image-check.sh` |
 | `notify.sh` | ntfy delivery with an on-disk queue |
 | `healthcheck.sh` | read-only state check |
 | `backup.sh` | backup |
@@ -228,6 +228,50 @@ itself.
 Planned maintenance does not page you: `backup.sh` raises
 `~/alerts/maintenance` while it deliberately stops services. The flag expires
 after 15 minutes, so a backup that dies halfway cannot silence alerting for good.
+
+## Container images
+
+Every registry image here is pinned to a moving tag (`:latest`, `:2`) and
+**nothing pulls it on its own**. `unattended-upgrades` patches Debian and does
+not look inside a container, so without a deliberate act the containers keep
+running whatever was current on the day they were pulled. On 2026-09-03 that
+was an eight-month-old nginx.
+
+`podman-auto-update.timer` is the obvious answer and it is **masked on
+purpose**. It pulls *and restarts*, daily, with up to 15 minutes of random
+delay — an unannounced restart of Pi-hole is an unannounced DNS outage for the
+whole house, at an hour nobody chose. The mask is committed
+(`.config/systemd/user/podman-auto-update.timer -> /dev/null`) so a restore
+cannot quietly reinstate it.
+
+What runs instead is `alerts/image-check.sh` on `image-check.timer`, Mondays at
+08:00: it asks the registry for the digest behind each tag, compares it with
+the local one, and **sends a notification if they differ**. It pulls nothing
+and restarts nothing.
+
+Updating is a manual, chosen act:
+
+```bash
+~/alerts/image-check.sh --verbose   # what is actually stale, and why
+podman auto-update                  # pulls AND restarts everything labelled
+systemctl --user restart pihole     # or one at a time, if you prefer
+```
+
+Two things worth knowing before trusting the output:
+
+- Every registry-backed quadlet carries `AutoUpdate=registry`. The label is
+  what makes `podman auto-update` work; on its own it does nothing, because
+  nothing scheduled ever calls it.
+- `podman auto-update --dry-run` reads that label from the **running**
+  container, and a container only receives it when it is next created. These
+  run with `Restart=always` and can go months without being recreated, so the
+  native dry-run stays silent about a genuinely stale image. That is why
+  `image-check.sh` reads the quadlet files instead — it is correct from the
+  first run, before anything has been restarted.
+
+Locally built images (`localhost/city-air`, `localhost/sds011`) are a separate
+rule in `alerts/check.sh`, by build date, pointing at `~/rebuild-images.sh`.
+Between the two, every image is covered exactly once.
 
 ## Backups
 

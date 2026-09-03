@@ -1,0 +1,12 @@
+[Unit]
+Description=Weekly check for newer container images (report only)
+# The script exits 0 for a stale image and 0 for an unreachable registry, so
+# this only fires when the check itself is broken - a missing jq, a vanished
+# quadlet directory - which is worth knowing and is not a weekly event.
+OnFailure=alert@%N.service
+
+[Service]
+Type=oneshot
+ExecStart=%h/alerts/image-check.sh
+# Five registry round trips over a home link, with curl timeouts of 20s each.
+TimeoutStartSec=300

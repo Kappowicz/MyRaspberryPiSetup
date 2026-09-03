@@ -1,5 +1,14 @@
 [Container]
 Image=docker.io/influxdb:2
+
+# Marks this container for `podman auto-update`. The label alone changes
+# nothing on its own: podman-auto-update.timer is MASKED (see README), so
+# no scheduled job ever pulls or restarts anything. What reads the label is
+# image-check.timer, which runs `podman auto-update --dry-run` weekly and
+# only sends a notification. Updating stays a manual, chosen act:
+#   podman auto-update            # pulls AND restarts - run it when you want
+#                                 # the restart, not when the timer says so
+AutoUpdate=registry
 Network=sensor-net.network
 Volume=influxdb-data:/var/lib/influxdb2:Z
 PublishPort=8086:8086

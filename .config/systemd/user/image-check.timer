@@ -1,0 +1,12 @@
+[Unit]
+Description=Weekly container image check, Mondays at 08:00
+
+[Timer]
+OnCalendar=Mon *-*-* 08:00:00
+# An hour after daily-check, so a Monday morning does not fire both at once.
+Persistent=true
+RandomizedDelaySec=15min
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target
