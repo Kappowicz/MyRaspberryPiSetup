@@ -10,6 +10,7 @@ mkdir -p "$HOME/.config/containers/systemd"
 mkdir -p "$HOME/.config/systemd/user"
 mkdir -p "$HOME/alerts/state" "$HOME/alerts/queue"
 mkdir -p "$HOME/backups"
+mkdir -p "$HOME/telegraf" 
 
 echo "== 2/7 copying secret templates (without overwriting existing ones) =="
 if [ -d "$PROJECT_DIR/examples/secrets" ]; then
@@ -27,7 +28,12 @@ if [ -d "$PROJECT_DIR/examples/secrets" ]; then
   done
 fi
 
-echo "== 3/7 site configuration =="
+if [ -f "$PROJECT_DIR/telegraf/telegraf.conf" ] && [ ! -f "$HOME/telegraf/telegraf.conf" ]; then
+  cp "$PROJECT_DIR/telegraf/telegraf.conf" "$HOME/telegraf/telegraf.conf"
+  echo "   created: $HOME/telegraf/telegraf.conf"
+fi
+
+echo "== 3/7 site configuration ==" 
 SITE="$HOME/.config/site.conf"
 if [ ! -f "$SITE" ]; then
   cp "$PROJECT_DIR/examples/site.conf.example" "$SITE"

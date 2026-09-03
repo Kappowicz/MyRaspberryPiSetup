@@ -19,7 +19,8 @@ Containers run **rootless** via podman + quadlets, as user services.
 | `backup.sh` | backup |
 | `rebuild-images.sh` | rebuild the local application images |
 | `install.sh` | bootstrap on a clean system |
-| `grafana/` | dashboard template and provisioning |
+| `grafana/` | dashboard templates and provisioning |
+| `telegraf/` | Telegraf host and hardware metrics collector configuration |
 | `examples/` | templates: the secret files and `site.conf` |
 
 ## What this repository does NOT contain
@@ -86,7 +87,7 @@ The whole stack would be dead and nothing would say so.
 
 ```bash
 git clone <repo> ~/malinka && cd ~/malinka
-cp -a .config alerts grafana examples *.sh *.md ~/
+cp -a .config alerts grafana examples telegraf *.sh *.md ~/
 ```
 
 ### 4. Secrets
@@ -144,12 +145,14 @@ kernel rejects every DISCARD command, so the kernel log is the only honest check
 
 ### 6. InfluxDB from scratch (only if you are not restoring the volume)
 
-Organisation and bucket are whatever you set in `~/.config/site.conf`
-(`INFLUXDB_ORG`, `INFLUXDB_BUCKET`). Then three narrowly scoped tokens:
+Organisation and primary bucket are whatever you set in `~/.config/site.conf`
+(`INFLUXDB_ORG`, `INFLUXDB_BUCKET`). System and hardware metrics write to a dedicated
+`system_metrics` bucket (retention 90 days). Then four narrowly scoped tokens:
 
 | token | permissions | for |
 |---|---|---|
-| apps | read+write on that bucket | city-air, sds011 |
+| apps | read+write on `powietrze` | city-air, sds011 |
+| telegraf | read+write on `system_metrics` | telegraf |
 | read | read on buckets | Grafana, `check.sh` |
 | admin | full | kept by hand, no service uses it |
 
