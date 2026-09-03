@@ -12,7 +12,7 @@ ok(){ printf "  \033[32mOK\033[0m   %s\n" "$1"; }
 bad(){ printf "  \033[31mWARN\033[0m %s\n" "$1"; }
 
 echo "== SERVICES =="
-for s in pihole unbound influxdb grafana sds011 city-air server-www; do
+for s in pihole unbound influxdb grafana sds011 city-air; do
   [ "$(systemctl --user is-active $s.service 2>/dev/null)" = active ] \
     && ok "$s" || bad "$s NOT RUNNING"
 done

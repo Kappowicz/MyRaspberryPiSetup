@@ -94,7 +94,7 @@ echo "== 3/5 application code, unbound, quadlets, alerting, secrets =="
 # unambiguous. Previously ".config/containers/systemd" landed as "systemd/" and
 # would have collided with ".config/systemd/user" once a second directory was
 # added.
-CANDIDATES="install.sh LICENSE sensor-app city-app sample-site unbound alerts grafana .githooks examples previous-versions
+CANDIDATES="install.sh LICENSE sensor-app city-app unbound alerts grafana .githooks examples previous-versions
 healthcheck.sh backup.sh notify.sh .gitignore README.md PLAN.md rebuild-images.sh
 .config/containers/systemd .config/systemd/user .config/secrets .config/alerts.conf"
 TO_PACK=""

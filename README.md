@@ -178,13 +178,13 @@ after changing `requirements.txt`, or to pick up base-image patches:
 
 ```bash
 systemctl --user daemon-reload
-systemctl --user enable --now alerts.timer heartbeat.timer daily-check.timer
+systemctl --user enable --now alerts.timer heartbeat.timer daily-check.timer \
+  image-check.timer
 ```
 
 Containers enable themselves — the quadlets carry `WantedBy=default.target`.
 
 ```bash
-crontab -e    # * * * * * $HOME/sample-site/update_temp.sh
 ~/pihole/load-rules.sh   # blocklists and custom rules, once Pi-hole is up
 ```
 
@@ -235,7 +235,8 @@ Every registry image here is pinned to a moving tag (`:latest`, `:2`) and
 **nothing pulls it on its own**. `unattended-upgrades` patches Debian and does
 not look inside a container, so without a deliberate act the containers keep
 running whatever was current on the day they were pulled. On 2026-09-03 that
-was an eight-month-old nginx.
+was a four-month-old Grafana and InfluxDB, and an eight-month-old nginx that
+has since been removed.
 
 `podman-auto-update.timer` is the obvious answer and it is **masked on
 purpose**. It pulls *and restarts*, daily, with up to 15 minutes of random

@@ -94,10 +94,6 @@ city-app/*
 !city-app/*.sh
 !city-app/Containerfile
 
-!sample-site/
-sample-site/*
-!sample-site/*.html
-!sample-site/*.sh
 
 !unbound/
 unbound/*
