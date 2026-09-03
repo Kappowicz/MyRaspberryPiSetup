@@ -14,7 +14,21 @@ INFLUXDB_TOKEN = os.getenv("INFLUXDB_TOKEN", "")
 INFLUXDB_ORG = os.getenv("INFLUXDB_ORG", "home")
 INFLUXDB_BUCKET = os.getenv("INFLUXDB_BUCKET", "air")
 
-STATION_ID = int(os.getenv("GIOS_STATION_ID", ""))  # set in ~/.config/site.conf
+# No default, deliberately. Every other value above falls back to something
+# generic ("home", "air", "city"); a station id cannot, because any number
+# put here would be a real place - somebody's town, committed to a public
+# repository. Unset configuration has to fail loudly instead: collecting a
+# stranger's air quality under your own location tag would look like it was
+# working.
+_station = os.getenv("GIOS_STATION_ID", "").strip()
+if not _station.isdigit():
+    raise SystemExit(
+        "GIOS_STATION_ID is not set to a station number "
+        f"(got {_station!r}). Set it in ~/.config/site.conf - find the "
+        "station nearest you at https://powietrze.gios.gov.pl/pjp/current, "
+        "the id is in the URL."
+    )
+STATION_ID = int(_station)
 LOCATION = os.getenv("LOCATION", "city")
 INTERVAL = int(os.getenv("INTERVAL_SECONDS", "1800"))
 

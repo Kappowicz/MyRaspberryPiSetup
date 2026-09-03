@@ -1,0 +1,51 @@
+#!/bin/bash
+# Refuses a commit MESSAGE that carries a secret or the location of this house.
+#
+# pre-commit next to this one reads the staged FILES and never sees the message.
+# That gap was found the blunt way on 2026-09-03: the very commit that took the
+# station id out of the tracked files quoted the number in its own message. A
+# message is published exactly like a file is, and rewording it later rewrites
+# history just the same.
+set -u
+MSG_FILE="${1:?}"
+
+PATTERNS='hc-ping\.com/[0-9a-f]{8}-|ntfy\.sh/malinka-[a-z]+-[0-9a-f]{8}|(INFLUXDB?_TOKEN)=[A-Za-z0-9_-]{20}|GF_SECURITY_ADMIN_PASSWORD=[A-Za-z0-9]{12}|WEBPASSWORD=[A-Za-z0-9]{6}|BALLOON-SHA256'
+
+# Comment lines are stripped by git before the message is stored, so the
+# scissors line and the commented diff from `git commit -v` must not trip this.
+BODY=$(grep -v '^#' "$MSG_FILE")
+
+BAD=0
+if printf '%s\n' "$BODY" | grep -qE "$PATTERNS"; then
+  echo "SECRET in the commit message:"
+  printf '%s\n' "$BODY" | grep -nE "$PATTERNS" | cut -c1-110 | sed 's/^/    /'
+  BAD=1
+fi
+
+# Same two directions as in pre-commit, and for the same reason: this file is
+# committed too, so it cannot name the number it is protecting.
+SITE_CONF="$HOME/.config/site.conf"
+STATION=""
+[ -r "$SITE_CONF" ] && STATION=$(sed -n 's/^[[:space:]]*GIOS_STATION_ID=\([0-9][0-9]*\).*/\1/p' "$SITE_CONF" | head -1)
+
+HITS=$(printf '%s\n' "$BODY" | grep -nE 'GIOS_STATION_ID=[0-9]')
+if [ -n "$STATION" ]; then
+  MORE=$(printf '%s\n' "$BODY" | grep -nE "(^|[^0-9])$STATION([^0-9]|\$)")
+  [ -n "$MORE" ] && HITS=$(printf '%s\n%s' "$HITS" "$MORE")
+fi
+HITS=$(printf '%s\n' "$HITS" | grep -v '^$' | sort -u -t: -k1,1n)
+
+if [ -n "$HITS" ]; then
+  echo "LOCATION in the commit message:"
+  printf '%s\n' "$HITS" | cut -c1-110 | sed 's/^/    /'
+  BAD=1
+fi
+
+if [ "$BAD" = 1 ]; then
+  echo
+  echo "Commit blocked. Describe the value, do not quote it:"
+  echo "  \"the station id\", not the number itself."
+  echo
+  echo "If this is a false positive - deliberately, not reflexively:  git commit --no-verify"
+  exit 1
+fi

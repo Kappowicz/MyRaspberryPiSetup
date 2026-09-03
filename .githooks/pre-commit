@@ -1,8 +1,9 @@
 #!/bin/bash
-# Refuses a commit that carries a secret.
+# Refuses a commit that carries a secret, or the location of this house.
 #
 # The patterns are tuned to THIS system, not generic ones. Files matching
-# *.example are skipped - they are meant to look like secrets without being any.
+# *.example are skipped for the secret rules - they are meant to look like
+# secrets without being any.
 #
 # You will slip up eventually. The question is only whether you find out before
 # pushing or after - git remembers forever, and deleting the file in a later
@@ -14,10 +15,12 @@ PATTERNS='hc-ping\.com/[0-9a-f]{8}-|ntfy\.sh/malinka-[a-z]+-[0-9a-f]{8}|(INFLUXD
 BAD=0
 for p in $(git diff --cached --name-only --diff-filter=ACM); do
   # *.example: meant to look like a secret without being one.
-  # .githooks/pre-commit: contains the very patterns it searches for, so without
-  # this exception it would flag itself and block its own first commit.
+  # The hooks themselves: they contain the very patterns they search for, so
+  # without this exception they would flag themselves and block their own
+  # first commit. commit-msg was added here on 2026-09-03 after doing exactly
+  # that.
   case "$p" in
-    *.example|.githooks/pre-commit) continue ;;
+    *.example|.githooks/pre-commit|.githooks/commit-msg) continue ;;
   esac
   git show ":$p" 2>/dev/null | grep -nEq "$PATTERNS" || continue
   echo "SECRET in $p:"
@@ -25,11 +28,63 @@ for p in $(git diff --cached --name-only --diff-filter=ACM); do
   BAD=1
 done
 
-if [ "$BAD" = 1 ]; then
+# ----------------------------------------------------------------- location
+# The GIOS station id is not a credential. It is a LOCATION: it names the
+# public measuring station nearest the house, which is enough to put the house
+# in a town. On 2026-09-03 it sat in two committed files - the example config
+# and a default in city-app/main.py - and would have been published with them,
+# in a repository that is public and under a real name.
+#
+# This rule cannot simply list the number. THIS FILE IS COMMITTED TOO, so
+# writing the value here would publish exactly what the rule exists to stop.
+# So it works from two directions, neither of which needs the number to appear
+# in the repository:
+#
+#   1. any GIOS_STATION_ID= followed by digits is refused, whatever the digits.
+#      That protects anyone who clones this repository, without it having to
+#      know anything about this house.
+#   2. the real value is read at commit time from the untracked site.conf and
+#      refused wherever it shows up. That catches it hiding as a default in
+#      code - which is precisely where it was found.
+#
+# *.example is NOT skipped here. The blanket skip above is right for secrets,
+# whose templates are supposed to look real. It is wrong for this one: the
+# example config is where the id actually leaked.
+SITE_CONF="$HOME/.config/site.conf"
+STATION=""
+[ -r "$SITE_CONF" ] && STATION=$(sed -n 's/^[[:space:]]*GIOS_STATION_ID=\([0-9][0-9]*\).*/\1/p' "$SITE_CONF" | head -1)
+
+BAD_LOC=0
+for p in $(git diff --cached --name-only --diff-filter=ACM); do
+  case "$p" in .githooks/pre-commit|.githooks/commit-msg) continue ;; esac
+  C=$(git show ":$p" 2>/dev/null) || continue
+
+  HITS=$(printf '%s\n' "$C" | grep -nE 'GIOS_STATION_ID=[0-9]')
+  if [ -n "$STATION" ]; then
+    # Word boundaries: a bare number must not match inside a longer one.
+    MORE=$(printf '%s\n' "$C" | grep -nE "(^|[^0-9])$STATION([^0-9]|\$)")
+    [ -n "$MORE" ] && HITS=$(printf '%s\n%s' "$HITS" "$MORE")
+  fi
+  HITS=$(printf '%s\n' "$HITS" | grep -v '^$' | sort -u -t: -k1,1n)
+  [ -n "$HITS" ] || continue
+
+  echo "LOCATION in $p:"
+  printf '%s\n' "$HITS" | cut -c1-110 | sed 's/^/    /'
+  BAD_LOC=1
+done
+
+if [ "$BAD" = 1 ] || [ "$BAD_LOC" = 1 ]; then
   echo
   echo "Commit blocked."
-  echo "Secrets belong in ~/.config/secrets (mode 600); only the matching"
-  echo "template under examples/ goes into the repository."
+  [ "$BAD" = 1 ] && {
+    echo "Secrets belong in ~/.config/secrets (mode 600); only the matching"
+    echo "template under examples/ goes into the repository."
+  }
+  [ "$BAD_LOC" = 1 ] && {
+    echo "The station id is site-specific and belongs ONLY in ~/.config/site.conf,"
+    echo "which is not tracked. In the repository it stays a placeholder, and code"
+    echo "reads it from the environment with no fallback."
+  }
   echo
   echo "If this is a false positive - deliberately, not reflexively:  git commit --no-verify"
   exit 1
