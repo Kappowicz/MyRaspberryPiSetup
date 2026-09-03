@@ -283,7 +283,7 @@ fi
 # GROWTH of the restart counter - a loop gives itself away by motion, not state.
 RFILE="$STATE/.restarts"
 NEW=""; LOOPING=""
-for u in pihole unbound influxdb grafana city-air sds011; do
+for u in pihole unbound influxdb grafana city-air sds011 telegraf; do
   N=$(systemctl --user show "$u.service" -p NRestarts --value 2>/dev/null); N=${N:-0}
   PREV=$(grep "^$u=" "$RFILE" 2>/dev/null | cut -d= -f2); PREV=${PREV:-$N}
   [ $(( N - PREV )) -ge 3 ] && LOOPING="$LOOPING $u(+$(( N - PREV )))"

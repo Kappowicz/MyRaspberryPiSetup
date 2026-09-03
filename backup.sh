@@ -26,7 +26,7 @@ OUT="$DIR/malinka-$D"
 # fetcher down with it. The version in the plan restarted only the database and
 # Grafana, so those two stayed off silently. Hence: remember what was running
 # and restore exactly that.
-UNITS="grafana influxdb sds011 city-air"
+UNITS="grafana influxdb sds011 city-air telegraf"
 WAS=""
 RESTART=0
 # The flag tells the alerting system that stopping these services is intended.
@@ -94,7 +94,7 @@ echo "== 3/5 application code, unbound, quadlets, alerting, secrets =="
 # unambiguous. Previously ".config/containers/systemd" landed as "systemd/" and
 # would have collided with ".config/systemd/user" once a second directory was
 # added.
-CANDIDATES="install.sh LICENSE sensor-app city-app unbound alerts grafana .githooks examples previous-versions
+CANDIDATES="install.sh LICENSE sensor-app city-app unbound telegraf alerts grafana .githooks examples previous-versions
 healthcheck.sh backup.sh notify.sh .gitignore README.md PLAN.md rebuild-images.sh
 .config/containers/systemd .config/systemd/user .config/secrets .config/alerts.conf"
 TO_PACK=""

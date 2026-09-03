@@ -1,0 +1,38 @@
+[Unit]
+Description=Telegraf System Metrics Collector
+After=influxdb.service
+Requires=influxdb.service
+
+[Container]
+ContainerName=telegraf
+Image=docker.io/library/telegraf:latest
+
+# Marks this container for podman auto-update
+AutoUpdate=registry
+
+# Network=host allows monitoring physical eth0/wlan0 and communicating with InfluxDB on localhost:8086
+Network=host
+
+# Mounts host filesystems to collect host metrics instead of container metrics
+Volume=%h/telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro,Z
+Volume=/proc:/host/proc:ro
+Volume=/sys:/host/sys:ro
+Volume=/:/hostfs:ro
+
+Environment=HOST_PROC=/host/proc
+Environment=HOST_SYS=/host/sys
+Environment=HOST_MOUNT_PREFIX=/hostfs
+EnvironmentFile=%h/.config/secrets/influx-telegraf.env
+
+# Explicit entrypoint bypasses setpriv drop which fails in rootless Podman
+Entrypoint=/usr/bin/telegraf
+Exec=--config /etc/telegraf/telegraf.conf
+RunInit=yes
+
+[Service]
+SuccessExitStatus=143
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
