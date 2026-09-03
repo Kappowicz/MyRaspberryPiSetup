@@ -1,2 +1,33 @@
 [Network]
 # Creates an isolated network named systemd-sensor-net
+
+# Upstream resolver for aardvark-dns, pinned instead of inherited.
+#
+# With no DNS= here aardvark reads its upstreams from the host
+# /etc/resolv.conf. NetworkManager keeps the router RA nameserver
+# fe80::...%eth0 in that file, and resolving the %eth0 scope id fails inside
+# the rootless network namespace. aardvark then discards the WHOLE upstream
+# list, including the working IPv4 one, and logs:
+#
+#   failed to get upstream nameservers, dns forwarding will not work:
+#   resolve scope id: IO error: No such device (os error 19)
+#
+# It only reads resolv.conf at startup and on reload, so the breakage lands
+# whenever a container on this network is restarted - a Grafana restart on
+# 2026-09-01 16:16 silently cut city-air off from api.gios.gov.pl for 30 h
+# while container-to-container names kept resolving.
+#
+# Do NOT put the LAN address (192.168.0.57) here. pasta runs the rootless
+# netns with --config-net, which copies the host address AND the interface
+# name into that namespace: inside it 192.168.0.57/24 sits on a local eth0,
+# so aardvark queries to it land on lo, where nothing listens, and every
+# lookup fails with "dns request got empty response". This is the same trap
+# the 2026-08-29 note in city-air.container describes.
+#
+# 169.254.1.2 is the pasta --map-guest-addr address: from inside the
+# namespace it maps to the host itself, so the query reaches Pi-hole on the
+# host and keeps blocking and DoT in the path. 169.254.1.1 (pasta
+# --dns-forward) works too, but it re-enters the host resolv.conf logic that
+# broke things here. Both are podman 5.x defaults - re-check them if podman
+# or pasta is replaced.
+DNS=169.254.1.2
