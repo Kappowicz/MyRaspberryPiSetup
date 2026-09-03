@@ -433,35 +433,33 @@
         "overrides": [
           {
             "matcher": {
-              "id": "byName",
-              "options": "RAM Całkowity (Total)"
+              "id": "byFrameRefID",
+              "options": "A"
             },
             "properties": [
               {
-                "id": "color",
-                "value": {
-                  "fixedColor": "grey",
-                  "mode": "fixed"
-                }
+                "id": "displayName",
+                "value": "RAM Całkowity (Total)"
               },
               {
-                "id": "custom.lineStyle",
+                "id": "color",
                 "value": {
-                  "dash": [
-                    10,
-                    10
-                  ],
-                  "fill": "dash"
+                  "fixedColor": "text",
+                  "mode": "fixed"
                 }
               }
             ]
           },
           {
             "matcher": {
-              "id": "byName",
-              "options": "RAM Dostępny (Available)"
+              "id": "byFrameRefID",
+              "options": "B"
             },
             "properties": [
+              {
+                "id": "displayName",
+                "value": "RAM Dostępny (Available)"
+              },
               {
                 "id": "color",
                 "value": {
@@ -473,10 +471,14 @@
           },
           {
             "matcher": {
-              "id": "byName",
-              "options": "RAM Użyty (Used)"
+              "id": "byFrameRefID",
+              "options": "C"
             },
             "properties": [
+              {
+                "id": "displayName",
+                "value": "RAM Użyty (Used)"
+              },
               {
                 "id": "color",
                 "value": {
@@ -488,10 +490,14 @@
           },
           {
             "matcher": {
-              "id": "byName",
-              "options": "Swap Użyty"
+              "id": "byFrameRefID",
+              "options": "D"
             },
             "properties": [
+              {
+                "id": "displayName",
+                "value": "Swap Użyty"
+              },
               {
                 "id": "color",
                 "value": {
@@ -520,11 +526,19 @@
       "targets": [
         {
           "refId": "A",
-          "query": "from(bucket: \"system_metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mem\" and (r[\"_field\"] == \"total\" or r[\"_field\"] == \"available\" or r[\"_field\"] == \"used\"))\n  |> map(fn: (r) => ({\n      r with\n      _field: if r._field == \"total\" then \"RAM Całkowity (Total)\"\n              else if r._field == \"available\" then \"RAM Dostępny (Available)\"\n              else \"RAM Użyty (Used)\"\n    }))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
+          "query": "from(bucket: \"system_metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mem\" and r[\"_field\"] == \"total\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
         },
         {
           "refId": "B",
-          "query": "from(bucket: \"system_metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"swap\" and r[\"_field\"] == \"used\")\n  |> map(fn: (r) => ({r with _field: \"Swap Użyty\"}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
+          "query": "from(bucket: \"system_metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mem\" and r[\"_field\"] == \"available\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
+        },
+        {
+          "refId": "C",
+          "query": "from(bucket: \"system_metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mem\" and r[\"_field\"] == \"used\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
+        },
+        {
+          "refId": "D",
+          "query": "from(bucket: \"system_metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"swap\" and r[\"_field\"] == \"used\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
         }
       ]
     },
