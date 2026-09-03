@@ -45,6 +45,9 @@ VERBOSE=0
 
 command -v jq >/dev/null || { echo "image-check: jq is missing" >&2; exit 78; }
 
+ARCH=$(podman info --format '{{.Host.Arch}}' 2>/dev/null)
+ARCH=${ARCH:-arm64}
+
 # ----------------------------------------------------------------- registry
 
 # The digest the registry currently serves for a tag, without pulling a byte.
@@ -79,6 +82,27 @@ local_digest() { # $1=full image ref
     | sed 's/.*@//' | grep '^sha256:' | head -1
 }
 
+# The digest of the per-architecture manifest inside the index, read from the
+# registry without pulling. Empty when the tag is a plain single-arch manifest.
+#
+# Why both this and remote_digest: what podman stores in RepoDigests is not one
+# consistent kind of digest. An image pulled a while ago holds the INDEX digest;
+# the same image pulled today holds the ARCH manifest digest. Comparing against
+# only one of the two reports a permanent false update - grafana and pihole both
+# did exactly that on 2026-09-03, minutes after being brought fully up to date.
+#
+# So an image counts as current when its local digest matches EITHER remote
+# digest. That is not a loosening: when a tag really moves, both change, and a
+# local copy matches neither. It also fixes a case worth having right - an index
+# re-pushed because some other architecture was rebuilt, while the arm64 image
+# is byte for byte the one already running. Nothing to pull, nothing to restart.
+remote_arch_digest() { # $1=full image ref
+  podman manifest inspect "$1" 2>/dev/null | jq -r --arg a "$ARCH" '
+    .manifests // []
+    | map(select(.platform.architecture == $a and .platform.os == "linux"))
+    | .[0].digest // empty'
+}
+
 # --------------------------------------------------------------- the images
 
 # Read from the quadlets rather than from running containers, so an image that
@@ -110,6 +134,7 @@ for f in "$QUADLETS"/*.container; do
   CHECKED=$(( CHECKED + 1 ))
   have=$(local_digest "$ref")
   want=$(remote_digest "$repo" "$tag")
+  want_arch=$(remote_arch_digest "$ref")
 
   if [ -z "$want" ]; then
     UNREACHABLE=$(( UNREACHABLE + 1 ))
@@ -122,13 +147,13 @@ for f in "$QUADLETS"/*.container; do
     continue
   fi
 
-  if [ "$have" = "$want" ]; then
+  if [ "$have" = "$want" ] || { [ -n "$want_arch" ] && [ "$have" = "$want_arch" ]; }; then
     [ "$VERBOSE" -eq 1 ] && echo "ok    $ref"
   else
     age=$(podman image inspect --format '{{.Created}}' "$ref" 2>/dev/null | cut -c1-10)
     STALE="${STALE}${ref}  (local copy built ${age:-?})
 "
-    [ "$VERBOSE" -eq 1 ] && echo "STALE $ref  local=${have#sha256:} remote=${want#sha256:}"
+    [ "$VERBOSE" -eq 1 ] && echo "STALE $ref  local=${have#sha256:} index=${want#sha256:} arch=${want_arch#sha256:}"
   fi
 done
 
