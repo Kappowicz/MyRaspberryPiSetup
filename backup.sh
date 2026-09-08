@@ -130,7 +130,8 @@ SYS_CANDIDATES="/etc/systemd/journald.conf.d
 /usr/local/sbin/ssd-trim-limit.sh
 /etc/systemd/system.conf.d/watchdog.conf
 /etc/nsswitch.conf
-/etc/cloud/cloud-init.disabled"
+/etc/cloud/cloud-init.disabled
+/etc/modprobe.d/disable-sound.conf"
 SYS_PACK=""
 SYS_MISSING=""
 for k in $SYS_CANDIDATES; do

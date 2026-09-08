@@ -24,10 +24,28 @@
 # lookup fails with "dns request got empty response". This is the same trap
 # the 2026-08-29 note in city-air.container describes.
 #
-# 169.254.1.2 is the pasta --map-guest-addr address: from inside the
-# namespace it maps to the host itself, so the query reaches Pi-hole on the
-# host and keeps blocking and DoT in the path. 169.254.1.1 (pasta
-# --dns-forward) works too, but it re-enters the host resolv.conf logic that
-# broke things here. Both are podman 5.x defaults - re-check them if podman
-# or pasta is replaced.
-DNS=169.254.1.2
+# Do NOT use 169.254.1.2 either - that was the 2026-09-03 fix and it lasted
+# only until the next reboot. It is the pasta --map-guest-addr address, and
+# pasta(1) is explicit about what that means: packets to it are redirected
+# "to the address assigned to the guest with -a, or by default the host's
+# global address". So it reaches Pi-hole only while pasta actually HAS the
+# host global address - and on a cold boot it often does not. On 2026-09-03
+# network-online.target fired at 21:05:54 with only lo up,
+# podman-user-wait-network-online.service was satisfied 10 ms later, influxdb
+# started at 21:05:55 and brought pasta up with it - while eth0 only got link
+# and its DHCP lease at 21:05:59.8, four seconds too late. With no global
+# address to copy, pasta fell back to a link-local tap0 (169.254.2.1/16),
+# every lookup to 169.254.1.2 was redirected there, nothing listened, and
+# city-air lost the GIOS station for 17 h. pasta configures this once, at
+# netns creation, so a lease arriving seconds later never repairs it.
+#
+# 169.254.1.1 is the pasta --dns-forward address. pasta answers on it ITSELF
+# and forwards to the host resolvers, so it does not depend on which address
+# pasta managed to give the namespace - it kept resolving correctly all the
+# way through the outage above, which is what makes it the reboot-safe
+# choice. The queries still land on Pi-hole on the host, so blocking and DoT
+# stay in the path. Unlike aardvark, pasta handles the fe80::...%eth0 entry
+# in the host resolv.conf without discarding the rest of the list.
+#
+# Both are podman 5.x defaults - re-check them if podman or pasta is replaced.
+DNS=169.254.1.1

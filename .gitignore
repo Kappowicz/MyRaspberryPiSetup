@@ -106,5 +106,8 @@ __pycache__/
 !telegraf/
 telegraf/*
 !telegraf/*.conf
+!telegraf/scripts/
+telegraf/scripts/*
+!telegraf/scripts/*.sh
 
 !grafana/dashboards/system-metrics.json

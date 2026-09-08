@@ -393,17 +393,50 @@ else
 fi
 
 # --- GIOS: someone else's station, nothing you can do -> quiet channel
+#
+# A stale GIOS series means one of two very different things, and telling them
+# apart matters more here than the threshold does. Either the station really is
+# quiet - their end, nothing to do but wait - or the fetch never leaves this
+# host because city-air cannot resolve the API name at all. On 2026-09-03 a
+# pasta/DNS breakage was reported for 17 h as "The GIOS station is not
+# publishing" on the QUIET channel: the wrong story, on the wrong channel,
+# blaming the wrong people. So before blaming GIOS, ask the container whether
+# the name still resolves.
+GIOS_HOST=api.gios.gov.pl
+gios_resolves() {
+  timeout 10 podman exec city-air getent hosts "$GIOS_HOST" >/dev/null 2>&1
+}
+
 G=$(series_age GIOS pm25)
 say "influx/gios: $G"
 if [ "$G" = NONE ] || [ "$G" -gt "$GIOS_MAX" ]; then
-  evaluate gios bad 0 info \
-    "The GIOS station is not publishing" \
-    "Last measurement $([ "$G" = NONE ] && echo "does not exist - the series is empty" || echo "was $(( G / 60 )) min ago"). Threshold: $(( GIOS_MAX / 60 )) min.
-This is usually the GIOS end, not this host. Check whether fetching works:
+  GAGE=$([ "$G" = NONE ] && echo "does not exist - the series is empty" || echo "was $(( G / 60 )) min ago")
+  if gios_resolves; then
+    say "  gios stale, but $GIOS_HOST still resolves -> their end, quiet channel"
+    evaluate gios_dns ok 0 alarm "city-air cannot resolve $GIOS_HOST" ""
+    evaluate gios bad 0 info \
+      "The GIOS station is not publishing" \
+      "Last measurement $GAGE. Threshold: $(( GIOS_MAX / 60 )) min.
+The container still resolves $GIOS_HOST, so the request is leaving this host - this is the GIOS end.
   journalctl --user -u city-air -n 20
 If the log shows fresh cycles with the same 'last' value - the station is quiet and you just wait it out."
+  else
+    # Debounced by 10 min: a deliberate restart of city-air must not page you
+    # just because the container was briefly gone when the probe ran.
+    say "  gios stale AND $GIOS_HOST does not resolve -> our end, alarm"
+    evaluate gios ok 0 info "The GIOS station is not publishing" ""
+    evaluate gios_dns bad 600 alarm \
+      "city-air cannot resolve $GIOS_HOST" \
+      "Last measurement $GAGE, and the container cannot resolve the name - the request never leaves this host. This is NOT the station.
+Check the pinned upstream and whether pasta got a real host address:
+  podman exec city-air getent hosts $GIOS_HOST
+  podman unshare --rootless-netns ip -br addr
+A link-local tap0 (169.254.x) instead of $(hostname -I | awk '{print $1}') means pasta came up before the network did. Rebuild the netns:
+  systemctl --user stop city-air sds011 grafana influxdb && systemctl --user start influxdb grafana city-air sds011"
+  fi
 else
   evaluate gios ok 0 info "The GIOS station is not publishing" ""
+  evaluate gios_dns ok 0 alarm "city-air cannot resolve $GIOS_HOST" ""
 fi
 
 # One more pass at the end: notifications queued above should go out now, not

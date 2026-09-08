@@ -123,6 +123,7 @@ lost on a restore:
 | `/etc/systemd/system.conf.d/watchdog.conf` | `RuntimeWatchdogSec=15s` |
 | `/etc/nsswitch.conf` | `winbind` removed from `passwd`/`group` |
 | `/etc/cloud/cloud-init.disabled` | keeps cloud-init from starting |
+| `/etc/modprobe.d/disable-sound.conf` | blacklists unused sound drivers on headless server |
 
 After restoring them:
 
@@ -142,6 +143,27 @@ sudo fstrim -v / && sudo journalctl -k --since -2min | grep -c "critical target 
 
 The last number must be 0. On this hardware `fstrim` reports success while the
 kernel rejects every DISCARD command, so the kernel log is the only honest check.
+
+### 5c. Headless & power tuning (`/boot/firmware/config.txt`)
+
+For a server running 24/7 on Ethernet with no display or speakers, the onboard
+radios and audio PLL draw ~0.5 W of idle power needlessly. Add to `/boot/firmware/config.txt`:
+
+```ini
+[all]
+# Disable onboard Wi-Fi and Bluetooth (saves power & unloads radio drivers)
+dtoverlay=disable-wifi
+dtoverlay=disable-bt
+
+# Disable onboard audio (saves ~30-50 mW, unloads ALSA drivers)
+dtparam=audio=off
+```
+
+Also disable the associated services:
+
+```bash
+sudo systemctl disable --now bluetooth.service wpa_supplicant.service alsa-restore.service
+```
 
 ### 6. InfluxDB from scratch (only if you are not restoring the volume)
 
