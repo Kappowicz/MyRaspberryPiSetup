@@ -12,8 +12,8 @@ Containers run **rootless** via podman + quadlets, as user services.
 | path | contents |
 |---|---|
 | `.config/containers/systemd/` | quadlets — container definitions |
-| `.config/systemd/user/` | alert timers, `alert@.service`, `OnFailure=` drop-ins |
-| `alerts/` | the alerting engine: `check.sh`, `heartbeat.sh`, `unit-failed.sh`, `acl_check.py`, `image-check.sh` |
+| `.config/systemd/user/` | alert timers, `boot-notify.service`, `alert@.service`, `OnFailure=` drop-ins |
+| `alerts/` | the alerting engine: `check.sh`, `heartbeat.sh`, `unit-failed.sh`, `acl_check.py`, `image-check.sh`, `boot-notify.sh` |
 | `notify.sh` | ntfy delivery with an on-disk queue |
 | `healthcheck.sh` | read-only state check |
 | `backup.sh` | backup |
@@ -204,7 +204,7 @@ after changing `requirements.txt`, or to pick up base-image patches:
 ```bash
 systemctl --user daemon-reload
 systemctl --user enable --now alerts.timer heartbeat.timer daily-check.timer \
-  image-check.timer
+  image-check.timer boot-notify.service
 ```
 
 Containers enable themselves — the quadlets carry `WantedBy=default.target`.
@@ -236,10 +236,10 @@ Without it nothing stops you from committing a secret.
 |---|---|---|
 | 0 | the ntfy channel with an on-disk queue | `notify.sh` |
 | 1 | whether the host is alive at all (Healthchecks) | `alerts/heartbeat.sh` |
-| 2 | data freshness, DNS, blocking, clock, apt | `alerts/check.sh` |
+| 2 | data freshness, DNS, blocking, clock, apt, reboot-required | `alerts/check.sh` |
 | 3 | a unit in the `failed` state | `OnFailure=` drop-ins |
 | 4 | the daily check at 07:00 | `alerts/daily-check.sh` |
-| 5 | disk, temperature, SMART, restart loops, IPv6 prefix, image age | `alerts/check.sh` |
+| 5 | hardware (disk, mem, temp, throttling, SMART), restart loops, IPv6 prefix, image & backup age | `alerts/check.sh` |
 
 Layer 1 lives **outside** on purpose: an alarm running on the host cannot tell
 you the host is dead. The dead do not shout.

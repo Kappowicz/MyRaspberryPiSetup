@@ -116,7 +116,7 @@ fi
 
 echo "== 7/8 reloading and starting systemd units =="
 systemctl --user daemon-reload
-systemctl --user enable --now alerts.timer heartbeat.timer daily-check.timer 2>/dev/null || true
+systemctl --user enable --now alerts.timer heartbeat.timer daily-check.timer image-check.timer boot-notify.service 2>/dev/null || true
 
 echo "== 8/8 done =="
 cat << 'INFO'

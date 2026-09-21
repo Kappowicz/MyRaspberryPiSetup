@@ -172,6 +172,20 @@ else
   evaluate apt ok 0 info "Security updates have stalled" ""
 fi
 
+# --- pending system reboot after package/kernel upgrades ---------------------
+REBOOT_FILE="/var/run/reboot-required"
+say "reboot-required: $([ -f "$REBOOT_FILE" ] && echo yes || echo no)"
+if [ -f "$REBOOT_FILE" ]; then
+  PKGS=""
+  [ -f "${REBOOT_FILE}.pkgs" ] && PKGS=$(cat "${REBOOT_FILE}.pkgs" 2>/dev/null | tr '\n' ' ')
+  evaluate reboot_required bad 0 info "Reboot required after system upgrades" \
+    "System has pending updates requiring a reboot.$([ -n "$PKGS" ] && echo " Packages: $PKGS")
+Kernel running: $(uname -r)
+Reboot at your convenience: ssh $(whoami)@$(hostname -I | awk '{print $1}') 'sudo reboot'"
+else
+  evaluate reboot_required ok 0 info "Reboot required after system upgrades" ""
+fi
+
 # ================= layer 5: hardware, resources, restart loops ===============
 # These thresholds deliberately live HERE and not in healthcheck.sh. That script
 # prints disk, temperature and SMART as bare numbers with no bad() call - so
@@ -205,11 +219,29 @@ fi
 
 THROTTLED=$(vcgencmd get_throttled 2>/dev/null | cut -d= -f2)
 say "throttled: ${THROTTLED:-?}"
-if [ -n "$THROTTLED" ] && [ "$THROTTLED" != "0x0" ]; then
-  evaluate throttled bad 0 info "Power or thermal throttling" \
-    "get_throttled=$THROTTLED, clean is 0x0. The usual cause is a weak power supply or a poor USB-C cable."
+if [ -n "$THROTTLED" ]; then
+  THROTTLED_HEX=$(( THROTTLED )) 2>/dev/null || THROTTLED_HEX=0
+  THROTTLED_NOW=$(( THROTTLED_HEX & 0xF ))
+  THROTTLED_PAST=$(( (THROTTLED_HEX >> 16) & 0xF ))
+
+  # Active under-voltage or thermal throttling right now -> alarm
+  if [ "$THROTTLED_NOW" -ne 0 ]; then
+    evaluate throttled_active bad 0 alarm "Active under-voltage or thermal throttling" \
+      "get_throttled=$THROTTLED (active mask: 0x$(printf '%x' $THROTTLED_NOW)). CPU is currently throttled or experiencing under-voltage. Check power supply and cables."
+  else
+    evaluate throttled_active ok 0 alarm "Active under-voltage or thermal throttling" ""
+  fi
+
+  # Historical throttling that occurred since boot but is currently clear -> info
+  if [ "$THROTTLED_NOW" -eq 0 ] && [ "$THROTTLED_PAST" -ne 0 ]; then
+    evaluate throttled_history bad 0 info "Throttling occurred since boot (currently normal)" \
+      "get_throttled=$THROTTLED (historical mask: 0x$(printf '%x' $THROTTLED_PAST)). Under-voltage or throttling occurred in the past, but is currently clear."
+  else
+    evaluate throttled_history ok 0 info "Throttling occurred since boot (currently normal)" ""
+  fi
 else
-  evaluate throttled ok 0 info "Power or thermal throttling" ""
+  evaluate throttled_active ok 0 alarm "Active under-voltage or thermal throttling" ""
+  evaluate throttled_history ok 0 info "Throttling occurred since boot (currently normal)" ""
 fi
 
 SMART=$(sudo -n /usr/sbin/smartctl -H /dev/sda 2>/dev/null | grep -i "overall-health" | awk '{print $NF}')
@@ -229,6 +261,55 @@ if [ -n "$JOURNAL_MB" ] && [ "$JOURNAL_MB" -ge 18432 ]; then
     "${JOURNAL_MB} MB of 20480 MB. Past the limit the oldest entries start falling out - and those are the ones you need for a post-mortem."
 else
   evaluate journal ok 0 info "Journal is near its limit" ""
+fi
+
+# --- memory and swap exhaustion ----------------------------------------------
+MEM_AVAIL_MB=$(awk '/MemAvailable/{print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 9999)
+SWAP_TOTAL_KB=$(awk '/SwapTotal/{print $2}' /proc/meminfo 2>/dev/null || echo 0)
+SWAP_FREE_KB=$(awk '/SwapFree/{print $2}' /proc/meminfo 2>/dev/null || echo 0)
+if [ "${SWAP_TOTAL_KB:-0}" -gt 0 ]; then
+  SWAP_USED_KB=$(( SWAP_TOTAL_KB - SWAP_FREE_KB ))
+  SWAP_PCT=$(( SWAP_USED_KB * 100 / SWAP_TOTAL_KB ))
+else
+  SWAP_PCT=0
+fi
+say "mem: ${MEM_AVAIL_MB}MB avail, swap: ${SWAP_PCT}%"
+if [ "$MEM_AVAIL_MB" -le 200 ] || [ "$SWAP_PCT" -ge 75 ]; then
+  evaluate memory_exhaustion bad 0 info "Host memory is critically low" \
+    "Available RAM: ${MEM_AVAIL_MB} MB, Swap used: ${SWAP_PCT}%.
+If memory runs out, the kernel OOM killer will terminate processes.
+Check: free -h; ps aux --sort=-%mem | head -10"
+else
+  evaluate memory_exhaustion ok 0 info "Host memory is critically low" ""
+fi
+
+# --- kernel oom-killer events (last 24h) -------------------------------------
+OOM_KILLS=$(sudo -n journalctl -k --since -24h --no-pager 2>/dev/null | grep -ci "Out of memory: Killed process" || true)
+OOM_KILLS=${OOM_KILLS:-0}
+say "oom kills (24h): $OOM_KILLS"
+if [ "$OOM_KILLS" -ge 1 ]; then
+  evaluate oom_killer bad 0 alarm "Out of memory: process killed by kernel" \
+    "$OOM_KILLS process(es) were killed by the Linux OOM-killer in the last 24 hours.
+Check: sudo journalctl -k --since -24h | grep -i 'killed process'"
+else
+  evaluate oom_killer ok 0 alarm "Out of memory: process killed by kernel" ""
+fi
+
+# --- backup staleness --------------------------------------------------------
+LATEST_BACKUP=$(find "$HOME/backups" -maxdepth 1 -name 'malinka-*' 2>/dev/null | sort | tail -1)
+if [ -n "$LATEST_BACKUP" ]; then
+  B_EPOCH=$(stat -c %Y "$LATEST_BACKUP" 2>/dev/null || echo 0)
+  B_DAYS=$(( ( $(date +%s) - B_EPOCH ) / 86400 ))
+else
+  B_DAYS=999
+fi
+say "backup age: $B_DAYS days"
+if [ "$B_DAYS" -ge 30 ]; then
+  evaluate backup_stale bad 0 info "Backup is older than 30 days" \
+    "Last backup in ~/backups was taken $([ "$B_DAYS" -ge 999 ] && echo "never" || echo "$B_DAYS days ago").
+Run ~/backup.sh to take a fresh copy."
+else
+  evaluate backup_stale ok 0 info "Backup is older than 30 days" ""
 fi
 
 # The IPv6 prefix from the ISP is leased and can change without warning. When it
@@ -304,7 +385,9 @@ fi
 # --- safety net: anything in the failed state
 # The OnFailure= drop-ins are attached to specific units, but it is easy to add
 # an eighth one and forget the drop-in. This rule catches any of them.
-FAILED=$(systemctl --user --failed --no-legend 2>/dev/null | awk '{print $1}' | tr '\n' ' ')
+USER_FAILED=$(systemctl --user --failed --no-legend 2>/dev/null | awk '{print "user:"$1}' | tr '\n' ' ')
+SYS_FAILED=$(systemctl --failed --no-legend 2>/dev/null | awk '{print "sys:"$1}' | tr '\n' ' ')
+FAILED="${USER_FAILED}${SYS_FAILED}" 
 # Same flag as in unit-failed.sh - see the comment there. Without it every
 # backup run would report the very units it deliberately stopped.
 MAINT_FLAG="$HOME/alerts/maintenance"
@@ -377,6 +460,7 @@ if [ "$W" = ERROR ]; then
     "Queries to $INFLUX_URL have been failing for over $(( INFLUX_DEBOUNCE / 60 )) min. The charts are frozen and nothing is being written.
 Check: systemctl --user status influxdb; podman logs --tail 50 systemd-influxdb"
   say "influxdb is down - skipping freshness rules"
+  "$NOTIFY" queue >/dev/null 2>&1
   exit 0
 fi
 
