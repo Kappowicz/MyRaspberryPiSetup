@@ -129,7 +129,14 @@ def main():
                     )
 
             if points:
-                write_api.write(bucket=INFLUXDB_BUCKET, record=points)
+                for attempt in range(5):
+                    try:
+                        write_api.write(bucket=INFLUXDB_BUCKET, record=points)
+                        break
+                    except Exception:
+                        if attempt == 4:
+                            raise
+                        time.sleep(3)
                 print(f"Wrote {len(points)} points to InfluxDB.")
             else:
                 print("Nothing to write in this cycle.")

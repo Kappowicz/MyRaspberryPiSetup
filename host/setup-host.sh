@@ -39,5 +39,6 @@ systemctl daemon-reload
 udevadm control --reload-rules
 udevadm trigger --subsystem-match=scsi_disk
 udevadm settle
+systemctl enable NetworkManager-wait-online.service
 systemctl enable --now ssd-trim-limit.service smartmontools.service sysstat.service sysstat-collect.timer sysstat-summary.timer apt-daily.timer apt-daily-upgrade.timer
 echo "Host configured. Previous files: $SAVE. Log in again for groups; reboot later for boot/watchdog settings."
