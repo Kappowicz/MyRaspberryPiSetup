@@ -7,9 +7,10 @@
 # The address is detected automatically so the script keeps working after a
 # renumbering and on a different machine. Override with:
 #   HOST_IP=1.2.3.4 ./healthcheck.sh
+FAILED=0
 P="${HOST_IP:-$(ip -4 -o addr show scope global | awk '{print $4}' | cut -d/ -f1 | head -1)}"
 ok(){ printf "  \033[32mOK\033[0m   %s\n" "$1"; }
-bad(){ printf "  \033[31mWARN\033[0m %s\n" "$1"; }
+bad(){ FAILED=1; printf "  \033[31mWARN\033[0m %s\n" "$1"; }
 
 echo "== SERVICES =="
 for s in pihole unbound influxdb grafana sds011 city-air telegraf; do
@@ -45,14 +46,31 @@ echo "== BLOCKLISTS =="
 # Status alone only describes the LAST attempt. The age of the last SUCCESSFUL
 # update matters more: that is exactly the number nobody was looking at while
 # the CERT Polska list sat frozen for 53 days behind a seemingly healthy panel.
-podman exec pihole pihole-FTL sqlite3 /etc/pihole/gravity.db \
-  "select status||'|'||cast((strftime('%s','now')-date_updated)/86400 as int)||'|'||address from adlist where enabled=1;" 2>/dev/null |
-while IFS='|' read -r st days addr; do
-  DESC="$addr  (last successful update: $days days ago)"
+# However, status=2 means HTTP 304 (upstream unchanged), in which case Pi-hole
+# does not bump date_updated in gravity.db but DOES touch the .etag file in
+# /etc/pihole/listsCache/list.<id>.*.domains.etag on every successful check.
+BLOCKLISTS=$(podman exec pihole pihole-FTL sqlite3 /etc/pihole/gravity.db \
+  "select id||'|'||status||'|'||cast((strftime('%s','now')-date_updated)/86400 as int)||'|'||address from adlist where enabled=1;" 2>/dev/null)
+if [ -z "$BLOCKLISTS" ]; then bad "could not read blocklist status"; fi
+NOW_TS=$(date +%s)
+while IFS='|' read -r id st days addr; do
+  [ -n "$addr" ] || continue
+  check_days="$days"
+  if [ "$st" = "2" ]; then
+    etag_ts=$(podman exec pihole sh -c "stat -c %Y /etc/pihole/listsCache/list.${id}.*.domains.etag 2>/dev/null | head -1")
+    if [ -n "$etag_ts" ]; then
+      check_days=$(( (NOW_TS - etag_ts) / 86400 ))
+    fi
+  fi
+  if [ "$st" = "2" ] && [ "$check_days" != "$days" ]; then
+    DESC="$addr  (checked: $check_days days ago, content changed: $days days ago)"
+  else
+    DESC="$addr  (last successful update: $days days ago)"
+  fi
   if [ "$st" != "1" ] && [ "$st" != "2" ]; then bad "$DESC  status=$st - DOWNLOAD FAILED"
-  elif [ "$days" -gt 9 ]; then bad "$DESC - list is going stale despite status=$st"
+  elif [ "$check_days" -gt 9 ]; then bad "$DESC - list is going stale despite status=$st"
   else ok "$DESC"; fi
-done
+done <<< "$BLOCKLISTS"
 
 echo "== LOGS: are they growing, are they mixed up =="
 J=$(sudo du -sm /var/log/journal 2>/dev/null | cut -f1)
@@ -86,3 +104,5 @@ echo "== HARDWARE =="
 sudo /usr/sbin/smartctl -H /dev/sda 2>/dev/null | grep -i "overall-health" | sed "s/^/  /"
 vcgencmd measure_temp 2>/dev/null | sed "s/^/  /"
 vcgencmd get_throttled 2>/dev/null | sed "s/^/  /"
+
+exit "$FAILED"

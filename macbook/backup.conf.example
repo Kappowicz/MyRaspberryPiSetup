@@ -1,0 +1,6 @@
+HOST=user@192.168.0.57
+DRIVE="$HOME/Library/CloudStorage/GoogleDrive-YOUR_ACCOUNT/My Drive/malinka-backup"
+# LOCAL="$HOME/malinka-backups"
+# PASSPHRASE="$LOCAL/.archive-passphrase"
+# OSSL=/opt/homebrew/bin/openssl
+# ITER=600000

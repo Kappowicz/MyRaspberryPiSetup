@@ -23,3 +23,5 @@ SENSOR_LOCATION=home
 # DNSSearch=. so c-ares does not append it to failed lookups; healthcheck.sh
 # verifies the workaround still holds. Leave empty if your router sets none.
 DHCP_SEARCH_SUFFIX=
+
+INFLUXDB_SYSTEM_BUCKET=system_metrics

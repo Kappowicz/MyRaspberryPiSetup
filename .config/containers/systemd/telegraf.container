@@ -6,10 +6,9 @@ PartOf=influxdb.service
 
 [Container]
 ContainerName=telegraf
-Image=docker.io/library/telegraf:latest
+Image=docker.io/library/telegraf:latest@sha256:777cdbf333253be39085bf54c4c305d8360b26c6c882e252f42e74c5035ec2bb
 
-# Marks this container for podman auto-update
-AutoUpdate=registry
+# Pinned digest; updates are deliberate via tools/update-images.py.
 
 # Network=host allows monitoring physical eth0/wlan0 and communicating with InfluxDB on localhost:8086
 Network=host
@@ -20,6 +19,10 @@ Volume=%h/telegraf/scripts:/etc/telegraf/scripts:ro,Z
 Volume=/proc:/host/proc:ro
 Volume=/sys:/host/sys:ro
 Volume=/:/hostfs:ro
+# Mask /home inside /hostfs so Telegraf cannot read ~/.config/secrets, ~/.ssh,
+# or ~/backups while still keeping /hostfs statfs("/") and udev metadata intact.
+# (Tmpfs= cannot be nested inside a read-only bind mount in crun.)
+Volume=/mnt:/hostfs/home:ro
 
 AddDevice=/dev/vcio_gencmd:/dev/vcio_gencmd
 GroupAdd=keep-groups

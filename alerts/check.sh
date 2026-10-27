@@ -26,6 +26,11 @@ mkdir -p "$STATE"
 # you get one notification and then silence - and a week later you have no idea
 # whether it is still broken. With it: a reminder every 6 hours.
 REPEAT=21600
+# Info-level reminders repeat once a day, not every 6 hours. The 6-hour cadence
+# is right for an alarm, but on 2026-10-21..27 the "local images are going stale"
+# info - nothing broken, nothing urgent - arrived ~24 times in six days, night
+# included, and taught the phone to be ignored.
+REPEAT_INFO=86400
 
 # Thresholds. Derived from the write interval, with headroom.
 SDS011_MAX=2100     # 35 min; the sensor writes every 10 min (sleep 585+15)
@@ -68,16 +73,17 @@ series_age() { # $1=sensor $2=field -> seconds | NONE | ERROR
 
 evaluate() { # $1=name $2=bad|ok $3=debounce $4=channel $5=title $6=body
   local name=$1 result=$2 deb=$3 channel=$4 title=$5 body=$6
-  local file="$STATE/$name" now BAD_SINCE=0 NOTIFIED=0
+  local file="$STATE/$name" now BAD_SINCE=0 NOTIFIED=0 repeat=$REPEAT
+  [ "$channel" = info ] && repeat=$REPEAT_INFO
   now=$(date +%s)
   # shellcheck source=/dev/null
   [ -f "$file" ] && . "$file"
 
   if [ "$result" = bad ]; then
     [ "$BAD_SINCE" -eq 0 ] && BAD_SINCE=$now
-    if [ $(( now - BAD_SINCE )) -ge "$deb" ] && [ $(( now - NOTIFIED )) -ge "$REPEAT" ]; then
+    if [ $(( now - BAD_SINCE )) -ge "$deb" ] && [ $(( now - NOTIFIED )) -ge "$repeat" ]; then
       say "  -> NOTIFYING ($channel): $title"
-      # A 6-hour repeat must LOOK different from the first alarm, otherwise you
+      # A repeat must LOOK different from the first alarm, otherwise you
       # cannot tell a new failure from a reminder about an old one.
       if [ "$NOTIFIED" -eq 0 ]; then
         "$NOTIFY" "$channel" "$title" \
@@ -100,7 +106,12 @@ $body" >/dev/null 2>&1
     # Otherwise you would get a "recovered" after every momentary blip.
     if [ "$NOTIFIED" -ne 0 ]; then
       say "  -> RECOVERED: $title"
-      "$NOTIFY" done "Back to normal: $title" \
+      # The recovery goes out on the channel the alert came on. Before
+      # 2026-10-27 every recovery used "done", which posts to the ALARM topic -
+      # so a quiet info alert ended with a ping on the loud channel.
+      local done_channel=done
+      [ "$channel" = info ] && done_channel=done-info
+      "$NOTIFY" "$done_channel" "Back to normal: $title" \
         "All good again. The failure lasted $(duration $(( now - BAD_SINCE )))." >/dev/null 2>&1
     fi
     rm -f "$file"
@@ -139,6 +150,34 @@ Domain count: podman exec pihole pihole-FTL sqlite3 /etc/pihole/gravity.db 'sele
 Rebuild:      podman exec pihole pihole -g"
 else
   evaluate blocking ok 300 info "Ad blocking is not working" ""
+fi
+
+# --- DNS over Tailscale: the phone's resolver away from home ------------------
+# Since 2026-10-27 the tailnet's DNS is this Pi-hole (admin console: nameserver
+# = this host's tailnet address + override), and the phone runs Tailscale as
+# always-on VPN. So if
+# tailscaled dies or logs out here, the phone loses name resolution on mobile
+# data while everything at home still looks fine - nothing else would notice.
+# One query through the tailnet address covers tailscaled, the login and FTL
+# listening on that interface. Skipped while local DNS is down: the "DNS is not
+# answering" alarm already covers it, and a second alarm says nothing new.
+if [ "${DNS_OK:-0}" -ne 0 ]; then
+  TS_IP=$(tailscale ip -4 2>/dev/null | head -1)
+  TS_DNS=0
+  [ -n "$TS_IP" ] && TS_DNS=$(dig +short +time=3 +tries=1 "@$TS_IP" example.com A 2>/dev/null | grep -cE '^[0-9.]+$')
+  say "dns via tailscale (${TS_IP:-no ip}): ${TS_DNS:-0} answers"
+  if [ "${TS_DNS:-0}" -eq 0 ]; then
+    evaluate tailscale_dns bad 600 alarm "Pi-hole unreachable over Tailscale" \
+      "Pi-hole answers locally, but not on the Tailscale address (${TS_IP:-none - tailscale ip -4 returned nothing}).
+In practice: the phone has no DNS on mobile data (Tailscale is its always-on VPN). At home it works.
+Phone, right now: switch Tailscale off and the internet comes back.
+Check:
+  tailscale status
+  sudo systemctl status tailscaled
+  sudo tailscale up --accept-dns=false   (if it logged out; keep accept-dns off)"
+  else
+    evaluate tailscale_dns ok 600 alarm "Pi-hole unreachable over Tailscale" ""
+  fi
 fi
 
 # --- clock: a drifting clock ruins InfluxDB timestamps and the charts
@@ -210,11 +249,13 @@ fi
 
 TEMP=$(vcgencmd measure_temp 2>/dev/null | tr -dc '0-9.' | cut -d. -f1)
 say "temp: ${TEMP:-?}C"
-if [ -n "$TEMP" ] && [ "$TEMP" -ge 75 ]; then
-  evaluate temperature bad 0 info "The host is running hot" \
-    "CPU at ${TEMP}C. From around 80C the clock starts throttling and everything slows down."
-else
-  evaluate temperature ok 0 info "The host is running hot" ""
+if [ -n "$TEMP" ]; then
+  if [ "$TEMP" -ge 75 ]; then
+    evaluate temperature bad 0 info "The host is running hot" \
+      "CPU at ${TEMP}C. From around 80C the clock starts throttling and everything slows down."
+  else
+    evaluate temperature ok 0 info "The host is running hot" ""
+  fi
 fi
 
 THROTTLED=$(vcgencmd get_throttled 2>/dev/null | cut -d= -f2)
@@ -239,14 +280,15 @@ if [ -n "$THROTTLED" ]; then
   else
     evaluate throttled_history ok 0 info "Throttling occurred since boot (currently normal)" ""
   fi
-else
-  evaluate throttled_active ok 0 alarm "Active under-voltage or thermal throttling" ""
-  evaluate throttled_history ok 0 info "Throttling occurred since boot (currently normal)" ""
 fi
 
 SMART=$(sudo -n /usr/sbin/smartctl -H /dev/sda 2>/dev/null | grep -i "overall-health" | awk '{print $NF}')
 say "smart: ${SMART:-?}"
-if [ -n "$SMART" ] && [ "$SMART" != "PASSED" ]; then
+if [ -z "$SMART" ]; then
+  evaluate smart bad 900 info "SMART check could not read disk health" \
+    "smartctl -H /dev/sda returned no overall-health line.
+Check: sudo smartctl -a /dev/sda"
+elif [ "$SMART" != "PASSED" ]; then
   evaluate smart bad 0 alarm "SMART reports a disk problem" \
     "overall-health = $SMART. Make a backup BEFORE you start diagnosing anything.
 Check: sudo smartctl -a /dev/sda"
@@ -296,9 +338,9 @@ else
 fi
 
 # --- backup staleness --------------------------------------------------------
-LATEST_BACKUP=$(find "$HOME/backups" -maxdepth 1 -name 'malinka-*' 2>/dev/null | sort | tail -1)
-if [ -n "$LATEST_BACKUP" ]; then
-  B_EPOCH=$(stat -c %Y "$LATEST_BACKUP" 2>/dev/null || echo 0)
+# Only an atomically published, verified backup counts as successful.
+B_EPOCH=$(find "$HOME/backups" -maxdepth 2 -type f -name SUCCESS -path '*/malinka-*/SUCCESS' -exec cat {} + 2>/dev/null | awk '/^[0-9]+$/ && $1>newest {newest=$1} END {print newest+0}')
+if [ "$B_EPOCH" -gt 0 ]; then
   B_DAYS=$(( ( $(date +%s) - B_EPOCH ) / 86400 ))
 else
   B_DAYS=999

@@ -1,0 +1,14 @@
+[Unit]
+Description=Limit UNMAP size for the JMS578 USB bridge
+# Must run after udev has set provisioning_mode=unmap - only then does the
+# kernel expose a non-zero discard_max_hw_bytes and accept the write.
+After=systemd-udev-settle.service local-fs.target
+Wants=systemd-udev-settle.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/ssd-trim-limit.sh
+
+[Install]
+WantedBy=multi-user.target

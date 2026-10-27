@@ -12,7 +12,8 @@
 set -euo pipefail
 
 echo "== 1/3 fresh base image =="
-podman pull docker.io/library/python:3.11-slim | tail -1
+BASE=$(awk '/^FROM / {print $2; exit}' "$HOME/city-app/Containerfile")
+podman pull "$BASE" | tail -1
 
 echo "== 2/3 rebuild =="
 podman build -q -t localhost/city-air:latest "$HOME/city-app" >/dev/null

@@ -9,7 +9,7 @@ Image=localhost/city-air:latest
 Network=sensor-net.network
 
 # Application files (same as sds011) - no AddDevice, this one is HTTP only
-Volume=%h/city-app:/app:Z
+Volume=%h/city-app:/app:ro,Z
 WorkingDir=/app
 # With no DNS= entry the container uses aardvark (10.89.0.1), which forwards
 # queries to the host's resolv.conf, i.e. to Pi-hole - with blocking and DoT.

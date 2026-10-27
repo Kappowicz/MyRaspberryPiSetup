@@ -1,40 +1,9 @@
 #!/bin/bash
-# Weekly report on container images that have moved on in the registry.
-#
-# This deliberately does NOT update anything. `podman auto-update` pulls the
-# new image and RESTARTS the container, on a daily timer with a random delay -
-# an unannounced restart of Pi-hole is an unannounced DNS outage for the whole
-# house, at whatever hour the randomiser picks. So podman-auto-update.timer is
-# masked and this script exists in its place: it looks, it tells you, and you
-# choose the moment.
-#
-# When you want the update, that is one command, awake, with a terminal open:
-#
-#   podman auto-update                 # everything labelled AutoUpdate=registry
-#   podman auto-update --dry-run       # what podman itself thinks, once the
-#                                      # labels are live (see below)
-#
-# Why this script instead of `podman auto-update --dry-run`:
-# podman reads io.containers.autoupdate from the RUNNING container, and a
-# container only gets the label when it is next created. These containers run
-# with Restart=always and can go months without being recreated, so --dry-run
-# stays silent about a genuinely stale image for exactly as long as nothing
-# restarts. The label was still added to every quadlet - it is what makes the
-# manual command above work - but the check below reads the quadlet files
-# instead, so it is honest from the first run.
-#
-#   ./image-check.sh            - check, notify only if something is stale
-#   ./image-check.sh --verbose  - print every image and its verdict
-#
-# Scope: images that come FROM a registry. The locally built localhost/city-air
-# and localhost/sds011 are not here - a registry has nothing to say about them.
-# alerts/check.sh watches those by build date instead and points at
-# ~/rebuild-images.sh. Between the two rules every image is covered once.
-#
-# Exit code is 0 even when images are stale, and 0 when the registry cannot be
-# reached. A stale image is news, not a fault, and a flaky link at 04:00 on a
-# Sunday must not trip OnFailure= and wake anybody. Real breakage here is
-# visible in the journal.
+# Weekly check of registry tag changes; reads pinned quadlet digests. Notifies
+# only when a running copy is 30+ days old (OLD_DAYS below).
+# Updates are explicit: python3 ~/tools/update-images.py --pull, then review
+# and restart during maintenance. This check never pulls or restarts containers.
+# --verbose prints every result. Local app freshness is checked by check.sh.
 
 set -u
 
@@ -108,12 +77,17 @@ remote_arch_digest() { # $1=full image ref
 # Read from the quadlets rather than from running containers, so an image that
 # is temporarily down is still checked.
 STALE=""
+OLD=0
+# Notify only when something we run is at least this old. Every :latest tag
+# moves almost weekly, so "a newer version exists" was true every Monday and the
+# notification carried no information (5 of 5 on 2026-10-26). A month-old copy
+# of pihole or unbound is the thing worth a nudge.
+OLD_DAYS=30
 CHECKED=0
 UNREACHABLE=0
 
 for f in "$QUADLETS"/*.container; do
   [ -e "$f" ] || continue
-  grep -q '^AutoUpdate=registry' "$f" || continue
 
   ref=$(awk -F= '/^Image=/{print $2; exit}' "$f")
   [ -n "$ref" ] || continue
@@ -124,6 +98,8 @@ for f in "$QUADLETS"/*.container; do
     continue ;;
   esac
 
+  pinned_ref="$ref"
+  ref=${ref%@*}
   path=${ref#docker.io/}
   tag=${path##*:}
   repo=${path%:*}
@@ -132,7 +108,7 @@ for f in "$QUADLETS"/*.container; do
   case "$repo" in */*) ;; *) repo="library/$repo" ;; esac
 
   CHECKED=$(( CHECKED + 1 ))
-  have=$(local_digest "$ref")
+  have=$(local_digest "$pinned_ref")
   want=$(remote_digest "$repo" "$tag")
   want_arch=$(remote_arch_digest "$ref")
 
@@ -151,7 +127,16 @@ for f in "$QUADLETS"/*.container; do
     [ "$VERBOSE" -eq 1 ] && echo "ok    $ref"
   else
     age=$(podman image inspect --format '{{.Created}}' "$ref" 2>/dev/null | cut -c1-10)
-    STALE="${STALE}${ref}  (local copy built ${age:-?})
+    days=""
+    if epoch=$(date -d "$age" +%s 2>/dev/null); then
+      days=$(( ( $(date +%s) - epoch ) / 86400 ))
+    else
+      # Unreadable date: count it as old rather than stay silent forever -
+      # the trap check.sh's local-image rule fell into once.
+      OLD=$(( OLD + 1 ))
+    fi
+    [ -n "$days" ] && [ "$days" -ge "$OLD_DAYS" ] && OLD=$(( OLD + 1 ))
+    STALE="${STALE}${ref}  (local copy built ${age:-?}${days:+, $days days})
 "
     [ "$VERBOSE" -eq 1 ] && echo "STALE $ref  local=${have#sha256:} index=${want#sha256:} arch=${want_arch#sha256:}"
   fi
@@ -169,11 +154,15 @@ echo "image-check: $COUNT of $CHECKED images have a newer version"
 printf '%s' "$STALE"
 
 [ -x "$NOTIFY" ] || exit 0
+if [ "$OLD" -eq 0 ]; then
+  echo "image-check: none older than $OLD_DAYS days - not notifying"
+  exit 0
+fi
 
 # "info", not "alarm": nothing is broken and nothing needs doing tonight.
 "$NOTIFY" info "Nowsze obrazy kontenerow: $COUNT" \
 "$(printf '%s' "$STALE")
 Nic nie zostalo pobrane ani zrestartowane.
-Gdy bedziesz chcial: podman auto-update" >/dev/null 2>&1 || true
+Gdy bedziesz chcial: ~/tools/update-images.py --pull; potem swiadomy restart uslug" >/dev/null 2>&1 || true
 
 exit 0

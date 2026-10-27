@@ -1,6 +1,6 @@
 {
   "uid": "rpi5-system-metrics",
-  "title": "Raspberry Pi 5 \u2014 System & Hardware",
+  "title": "Raspberry Pi 5 — System & Hardware",
   "tags": [
     "raspberry-pi",
     "system",
@@ -27,7 +27,7 @@
       },
       "datasource": {
         "type": "influxdb",
-        "uid": "afl1398xamxa8b"
+        "uid": "influx-system"
       },
       "fieldConfig": {
         "defaults": {
@@ -82,7 +82,7 @@
       },
       "datasource": {
         "type": "influxdb",
-        "uid": "afl1398xamxa8b"
+        "uid": "influx-system"
       },
       "fieldConfig": {
         "defaults": {
@@ -127,7 +127,7 @@
     },
     {
       "id": 3,
-      "title": "Obci\u0105\u017cenie CPU (Total)",
+      "title": "Obciążenie CPU (Total)",
       "type": "stat",
       "gridPos": {
         "h": 4,
@@ -137,7 +137,7 @@
       },
       "datasource": {
         "type": "influxdb",
-        "uid": "afl1398xamxa8b"
+        "uid": "influx-system"
       },
       "fieldConfig": {
         "defaults": {
@@ -184,7 +184,7 @@
     },
     {
       "id": 4,
-      "title": "U\u017cycie RAM",
+      "title": "Użycie RAM",
       "type": "stat",
       "gridPos": {
         "h": 4,
@@ -194,7 +194,7 @@
       },
       "datasource": {
         "type": "influxdb",
-        "uid": "afl1398xamxa8b"
+        "uid": "influx-system"
       },
       "fieldConfig": {
         "defaults": {
@@ -241,7 +241,7 @@
     },
     {
       "id": 5,
-      "title": "Zape\u0142nienie SSD (/)",
+      "title": "Zapełnienie SSD (/)",
       "type": "stat",
       "gridPos": {
         "h": 4,
@@ -251,7 +251,7 @@
       },
       "datasource": {
         "type": "influxdb",
-        "uid": "afl1398xamxa8b"
+        "uid": "influx-system"
       },
       "fieldConfig": {
         "defaults": {
@@ -308,7 +308,7 @@
       },
       "datasource": {
         "type": "influxdb",
-        "uid": "afl1398xamxa8b"
+        "uid": "influx-system"
       },
       "fieldConfig": {
         "defaults": {
@@ -345,7 +345,7 @@
     },
     {
       "id": 7,
-      "title": "Historia Temperatur (\u00b0C)",
+      "title": "Historia Temperatur (°C)",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -355,7 +355,7 @@
       },
       "datasource": {
         "type": "influxdb",
-        "uid": "afl1398xamxa8b"
+        "uid": "influx-system"
       },
       "fieldConfig": {
         "defaults": {
@@ -375,7 +375,7 @@
     },
     {
       "id": 8,
-      "title": "Obci\u0105\u017cenie rdzeni CPU (%)",
+      "title": "Obciążenie rdzeni CPU (%)",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -385,7 +385,7 @@
       },
       "datasource": {
         "type": "influxdb",
-        "uid": "afl1398xamxa8b"
+        "uid": "influx-system"
       },
       "fieldConfig": {
         "defaults": {
@@ -406,7 +406,7 @@
     },
     {
       "id": 9,
-      "title": "U\u017cycie pami\u0119ci (RAM & Swap)",
+      "title": "Użycie pamięci (RAM & Swap)",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -416,7 +416,7 @@
       },
       "datasource": {
         "type": "influxdb",
-        "uid": "afl1398xamxa8b"
+        "uid": "influx-system"
       },
       "fieldConfig": {
         "defaults": {
@@ -439,7 +439,7 @@
             "properties": [
               {
                 "id": "displayName",
-                "value": "RAM Ca\u0142kowity (Total)"
+                "value": "RAM Całkowity (Total)"
               },
               {
                 "id": "color",
@@ -458,7 +458,7 @@
             "properties": [
               {
                 "id": "displayName",
-                "value": "RAM Dost\u0119pny (Available)"
+                "value": "RAM Dostępny (Available)"
               },
               {
                 "id": "color",
@@ -477,7 +477,7 @@
             "properties": [
               {
                 "id": "displayName",
-                "value": "RAM U\u017cyty (Used)"
+                "value": "RAM Użyty (Used)"
               },
               {
                 "id": "color",
@@ -496,7 +496,7 @@
             "properties": [
               {
                 "id": "displayName",
-                "value": "Swap U\u017cyty"
+                "value": "Swap Użyty"
               },
               {
                 "id": "color",
@@ -554,7 +554,7 @@
       },
       "datasource": {
         "type": "influxdb",
-        "uid": "afl1398xamxa8b"
+        "uid": "influx-system"
       },
       "fieldConfig": {
         "defaults": {
@@ -583,7 +583,7 @@
       },
       "datasource": {
         "type": "influxdb",
-        "uid": "afl1398xamxa8b"
+        "uid": "influx-system"
       },
       "fieldConfig": {
         "defaults": {
@@ -602,7 +602,7 @@
     },
     {
       "id": 12,
-      "title": "Aktualny pob\u00f3r mocy",
+      "title": "Aktualny pobór mocy",
       "type": "stat",
       "gridPos": {
         "h": 8,
@@ -612,7 +612,7 @@
       },
       "datasource": {
         "type": "influxdb",
-        "uid": "afl1398xamxa8b"
+        "uid": "influx-system"
       },
       "fieldConfig": {
         "defaults": {
@@ -648,7 +648,7 @@
             "properties": [
               {
                 "id": "displayName",
-                "value": "Szacowany ca\u0142kowity (Total)"
+                "value": "Szacowany całkowity (Total)"
               }
             ]
           },
@@ -693,7 +693,7 @@
     },
     {
       "id": 13,
-      "title": "Pob\u00f3r mocy w czasie (W)",
+      "title": "Pobór mocy w czasie (W)",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -703,7 +703,7 @@
       },
       "datasource": {
         "type": "influxdb",
-        "uid": "afl1398xamxa8b"
+        "uid": "influx-system"
       },
       "fieldConfig": {
         "defaults": {
@@ -727,7 +727,7 @@
             "properties": [
               {
                 "id": "displayName",
-                "value": "Szacowany pob\u00f3r ca\u0142kowity"
+                "value": "Szacowany pobór całkowity"
               },
               {
                 "id": "color",
@@ -746,7 +746,7 @@
             "properties": [
               {
                 "id": "displayName",
-                "value": "Pob\u00f3r szyn PMIC (Hardware)"
+                "value": "Pobór szyn PMIC (Hardware)"
               },
               {
                 "id": "color",
@@ -832,5 +832,6 @@
         }
       ]
     }
-  ]
+  ],
+  "id": null
 }

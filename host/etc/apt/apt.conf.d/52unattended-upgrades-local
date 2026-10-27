@@ -1,0 +1,28 @@
+// Konfiguracja lokalna. Plik 50unattended-upgrades zostaje nietkniety, zeby
+// aktualizacja pakietu nie pytala o konflikt conffile - dlatego numer 52
+// (APT czyta katalog alfabetycznie, pozniejszy wygrywa) i jawny #clear,
+// bo listy w APT domyslnie sie DOPISUJA, a nie zastepuja.
+
+// Domyslnie Debian ma tu aktywna takze linie "label=Debian", obejmujaca cale
+// stabilne repozytorium - czyli kazda aktualizacje, nie tylko bezpieczenstwa.
+// Zawezamy do samego security.
+#clear Unattended-Upgrade::Origins-Pattern;
+Unattended-Upgrade::Origins-Pattern {
+        "origin=Debian,codename=${distro_codename},label=Debian-Security";
+        "origin=Debian,codename=${distro_codename}-security,label=Debian-Security";
+};
+
+// Malinka jest serwerem DNS dla calego domu. Automatyczny restart to minuta
+// bez internetu w losowym momencie i pytanie "co sie stalo?", na ktore nikt
+// nie zna odpowiedzi. Restart zostaje decyzja czlowieka.
+Unattended-Upgrade::Automatic-Reboot "false";
+
+// Stare jadra zostaja. Przy 412 GB wolnego mozliwosc wycofania sie do
+// poprzedniego jadra jest warta wiecej niz odzyskane miejsce.
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "false";
+Unattended-Upgrade::Remove-New-Unused-Dependencies "false";
+
+// Poczty na tej maszynie nie ma, wiec raport idzie do journala - ktory od
+// 2026-08-29 jest trwaly, wiec "przestalo dzialac we wtorek" da sie zestawic
+// z tym, co sie wtedy zaktualizowalo.
+Unattended-Upgrade::SyslogEnable "true";

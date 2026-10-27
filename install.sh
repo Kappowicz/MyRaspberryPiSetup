@@ -1,140 +1,77 @@
-#!/bin/bash
-# Bootstrap script: sets up this configuration on a clean system.
+#!/usr/bin/env bash
+# Prepare files by default. Privileged configuration and service startup are explicit.
 set -euo pipefail
-
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-echo "== 1/8 creating directories =="
-mkdir -p "$HOME/.config/secrets" && chmod 700 "$HOME/.config/secrets"
-mkdir -p "$HOME/.config/containers/systemd"
-mkdir -p "$HOME/.config/systemd/user"
-mkdir -p "$HOME/alerts/state" "$HOME/alerts/queue"
-mkdir -p "$HOME/backups"
-mkdir -p "$HOME/telegraf" 
-
-echo "== 2/8 copying secret templates (without overwriting existing ones) =="
-if [ -d "$PROJECT_DIR/examples/secrets" ]; then
-  for f in "$PROJECT_DIR"/examples/secrets/*.example; do
-    [ -e "$f" ] || continue
-    name="$(basename "${f%.example}")"
-    target="$HOME/.config/secrets/$name"
-    if [ ! -f "$target" ]; then
-      cp "$f" "$target"
-      chmod 600 "$target"
-      echo "   created: $target (FILL IN THE VALUES!)"
-    else
-      echo "   exists: $target (skipping)"
-    fi
-  done
-fi
-
-if [ -f "$PROJECT_DIR/telegraf/telegraf.conf" ] && [ ! -f "$HOME/telegraf/telegraf.conf" ]; then
-  cp "$PROJECT_DIR/telegraf/telegraf.conf" "$HOME/telegraf/telegraf.conf"
-  echo "   created: $HOME/telegraf/telegraf.conf"
-fi
-
-if [ -d "$PROJECT_DIR/telegraf/scripts" ] && [ ! -d "$HOME/telegraf/scripts" ]; then
-  cp -r "$PROJECT_DIR/telegraf/scripts" "$HOME/telegraf/scripts"
-  echo "   created: $HOME/telegraf/scripts"
-fi
-
-echo "== 3/8 site configuration ==" 
-SITE="$HOME/.config/site.conf"
-if [ ! -f "$SITE" ]; then
-  cp "$PROJECT_DIR/examples/site.conf.example" "$SITE"
-  chmod 600 "$SITE"
-  echo "   created: $SITE (EDIT IT: station id, org, bucket, location tags)"
-else
-  echo "   exists: $SITE (skipping)"
-fi
-# shellcheck disable=SC1090
-. "$SITE"
-
-# The Grafana dashboard filters on the location tags, so it is rendered from a
-# template rather than shipped with one house's labels baked in.
-DASH_IN="$PROJECT_DIR/grafana/dashboards/air-quality.json.in"
-if [ -f "$DASH_IN" ]; then
-  sed -e "s|__BUCKET__|${INFLUXDB_BUCKET}|g" \
-      -e "s|__LOC_HOME__|${SENSOR_LOCATION}|g" \
-      -e "s|__LOC_CITY__|${LOCATION}|g" \
-      "$DASH_IN" > "${DASH_IN%.in}"
-  echo "   rendered: ${DASH_IN%.in}"
-fi
-
-echo "== 4/8 host hardware & power tuning (Wi-Fi, Bluetooth, Audio) =="
-CONFIG_TXT="/boot/firmware/config.txt"
-if [ -w "$CONFIG_TXT" ] || sudo -n true 2>/dev/null; then
-  SUDO=""
-  [ -w "$CONFIG_TXT" ] || SUDO="sudo"
-
-  if ! grep -q "dtoverlay=disable-wifi" "$CONFIG_TXT" 2>/dev/null; then
-    $SUDO tee -a "$CONFIG_TXT" >/dev/null << 'CFG'
-
-# Disable onboard Wi-Fi and Bluetooth
-dtoverlay=disable-wifi
-dtoverlay=disable-bt
-CFG
-    echo "   added: disable-wifi and disable-bt overlays to $CONFIG_TXT"
-  else
-    echo "   exists: disable-wifi in $CONFIG_TXT (skipping)"
+PACKAGES=0 HOST_SETUP=0 START=0
+for arg in "$@"; do
+  case "$arg" in
+    --packages) PACKAGES=1 ;;
+    --host) HOST_SETUP=1 ;;
+    --start) START=1 ;;
+    *) echo "Usage: install.sh [--packages] [--host] [--start]" >&2; exit 2 ;;
+  esac
+done
+FAILED=()
+report() {
+  local status=$?
+  trap - EXIT
+  if [ "$status" -ne 0 ] || [ "${#FAILED[@]}" -gt 0 ]; then
+    echo "Setup incomplete; fix the errors above and rerun." >&2
+    if [ "${#FAILED[@]}" -gt 0 ]; then printf 'FAILED: %s\n' "${FAILED[@]}" >&2; fi
+    exit 1
   fi
-
-  if grep -q "^dtparam=audio=on" "$CONFIG_TXT" 2>/dev/null; then
-    $SUDO sed -i 's/^dtparam=audio=on/dtparam=audio=off/' "$CONFIG_TXT"
-    echo "   disabled: dtparam=audio in $CONFIG_TXT"
-  fi
-
-  MODPROBE_SOUND="/etc/modprobe.d/disable-sound.conf"
-  if [ ! -f "$MODPROBE_SOUND" ]; then
-    $SUDO tee "$MODPROBE_SOUND" >/dev/null << 'CFG'
-# Disable sound drivers on headless server
-blacklist snd
-blacklist snd_pcm
-blacklist snd_timer
-blacklist snd_soc_core
-blacklist snd_soc_hdmi_codec
-blacklist snd_bcm2835
-CFG
-    echo "   created: $MODPROBE_SOUND"
-  fi
-
-  $SUDO systemctl disable --now bluetooth.service wpa_supplicant.service alsa-restore.service 2>/dev/null || true
-else
-  echo "   skipping host config.txt tuning (no sudo access)"
+  if [ "$START" -eq 1 ]; then echo "Setup and service startup succeeded."
+  else echo "Files prepared. Restore secrets/data, then run ./install.sh --start. See RECOVERY.md."; fi
+}
+trap report EXIT
+if [ "$PACKAGES" -eq 1 ]; then
+  sudo apt-get update
+  sudo apt-get install -y git arp-scan bind9-dnsutils curl ethtool jq mtr-tiny \
+    nftables openssl podman crun uidmap passt python3 rsync smartmontools \
+    sqlite3 sysstat tcpdump tree unattended-upgrades util-linux shellcheck raspi-utils-core
 fi
-
-echo "== 5/8 enabling linger for user $USER =="
-# Linger lets the user's services run in the background after logout and across
-# reboots. Without it the whole stack is dead after a restart and nothing says so.
-loginctl enable-linger "$USER" 2>/dev/null || echo "   note: loginctl linger needs privileges or an active session"
-
-echo "== 6/8 git configuration (if the repository is initialised) =="
-if [ -d "$PROJECT_DIR/.git" ]; then
-  git config core.hooksPath .githooks
-  echo "   pre-commit hook active (.githooks)"
+command -v python3 >/dev/null || { echo "python3 is required; install packages first." >&2; exit 1; }
+# Copy the whole declared configuration, including application code. Back up changed
+# destinations; do not copy private runtime directories or delete existing files.
+python3 "$PROJECT_DIR/tools/install-files.py" "$PROJECT_DIR" "$HOME"
+mkdir -p "$HOME/.config/secrets" "$HOME/alerts/state" "$HOME/alerts/queue" "$HOME/backups"
+chmod 700 "$HOME/.config/secrets" "$HOME/backups"
+for example in "$PROJECT_DIR"/examples/secrets/*.example; do
+  target="$HOME/.config/secrets/$(basename "${example%.example}")"
+  if [ ! -e "$target" ]; then install -m 600 "$example" "$target"; fi
+done
+if [ ! -e "$HOME/.config/site.conf" ]; then
+  install -m 600 "$PROJECT_DIR/examples/site.conf.example" "$HOME/.config/site.conf"
 fi
-
-echo "== 7/8 reloading and starting systemd units =="
+python3 "$HOME/tools/render-dashboards.py" "$HOME"
+if [ -d "$PROJECT_DIR/.git" ]; then git -C "$PROJECT_DIR" config --local core.hooksPath "$PROJECT_DIR/.githooks"; fi
+if [ "$HOST_SETUP" -eq 1 ]; then sudo bash "$HOME/host/setup-host.sh" "$(id -un)"; fi
+if [ "$START" -eq 0 ]; then exit 0; fi
+# No service changes before configuration passes validation.
+python3 "$HOME/tools/validate-config.py" "$HOME"
+command -v podman >/dev/null || { echo "podman is missing; run --packages first." >&2; exit 1; }
+[ "$(podman info --format '{{.Host.CgroupsVersion}}')" = v2 ] || { echo "Quadlet requires cgroup v2." >&2; exit 1; }
+[ "$(podman info --format '{{.Host.OCIRuntime.Name}}')" = crun ] || { echo "crun is required for GroupAdd=keep-groups." >&2; exit 1; }
+for group in dialout video; do
+  id -nG | tr ' ' '\n' | grep -Fxq "$group" || { echo "Missing active group $group; run --host and log in again." >&2; exit 1; }
+done
+[ -r /dev/serial/by-id/usb-1a86_USB_Serial-if00-port0 ] || { echo "SDS011 USB device is missing/unreadable." >&2; exit 1; }
+[ "$(/usr/sbin/sysctl -n net.ipv4.ip_unprivileged_port_start)" -le 53 ] || { echo "DNS port 53 requires host setup (--host)." >&2; exit 1; }
+loginctl enable-linger "$(id -un)"
+[ "$(loginctl show-user "$(id -un)" -p Linger --value)" = yes ] || { echo "Linger is not enabled." >&2; exit 1; }
+# Resolve/pull images before starting anything; the definitions pin registry digests.
+while IFS= read -r image; do
+  if ! podman image exists "$image"; then podman pull "$image"; fi
+done < <(awk -F= '/^Image=docker.io\// {print $2}' "$HOME"/.config/containers/systemd/*.container)
+for volume in influxdb-data grafana-data; do podman volume exists "$volume" || podman volume create "$volume"; done
+for app in city-app sensor-app; do
+  name=city-air; [ "$app" = sensor-app ] && name=sds011
+  if ! podman image exists "localhost/$name:latest"; then podman build -t "localhost/$name:latest" "$HOME/$app"; fi
+done
 systemctl --user daemon-reload
-systemctl --user enable --now alerts.timer heartbeat.timer daily-check.timer image-check.timer boot-notify.service 2>/dev/null || true
-
-echo "== 8/8 done =="
-cat << 'INFO'
-
-Installation finished.
-
-Next steps:
-1. Fill in the secrets in: ~/.config/secrets/*.env
-   and your own values in: ~/.config/site.conf
-2. Create the volumes for InfluxDB and Grafana:
-     podman volume create influxdb-data
-     podman volume create grafana-data
-3. Build the local application images (they have dependencies baked in so the
-   containers start without network access):
-     podman build -t localhost/city-air:latest ~/city-app
-     podman build -t localhost/sds011:latest  ~/sensor-app
-4. Once the Pi-hole container is running, load the blocklists and rules:
-     ~/pihole/load-rules.sh
-5. Check the state of the whole system:
-     ~/healthcheck.sh
-INFO
+systemctl --user start unbound pihole influxdb grafana city-air sds011 telegraf
+for unit in unbound pihole influxdb grafana city-air sds011 telegraf; do
+  if ! systemctl --user is-active --quiet "$unit"; then FAILED+=("$unit is not active"); fi
+done
+if [ "${#FAILED[@]}" -gt 0 ]; then exit 1; fi
+systemctl --user enable --now alerts.timer heartbeat.timer daily-check.timer image-check.timer boot-notify.service

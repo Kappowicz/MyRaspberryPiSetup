@@ -12,12 +12,12 @@ Network=sensor-net.network
 # 1. PASSING THROUGH THE USB DEVICE
 # Required so the script inside the container can see the hardware plugged
 # into the host.
-AddDevice=/dev/ttyUSB0:/dev/ttyUSB0
+AddDevice=/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0:/dev/ttyUSB0
 
 # 2. APPLICATION FILES
 # Mounts the directory with the Python script. The :Z flag matters for SELinux
 # (if it is enabled).
-Volume=%h/sensor-app:/app:Z
+Volume=%h/sensor-app:/app:ro,Z
 WorkingDir=/app
 GroupAdd=keep-groups
 # With no DNS= entry the container uses aardvark (10.89.0.1), which forwards

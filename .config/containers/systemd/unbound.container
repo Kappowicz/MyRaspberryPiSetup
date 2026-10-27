@@ -3,16 +3,9 @@ Description=unbound jako posrednik DoT dla Pi-hole
 After=network-online.target
 
 [Container]
-Image=docker.io/klutchell/unbound:latest
+Image=docker.io/klutchell/unbound:latest@sha256:9a3939ca33d6d3b42b81a70391bb8e43f0a08d2bd7a3fdffb43d427493345c36
 
-# Marks this container for `podman auto-update`. The label alone changes
-# nothing on its own: podman-auto-update.timer is MASKED (see README), so
-# no scheduled job ever pulls or restarts anything. What reads the label is
-# image-check.timer, which runs `podman auto-update --dry-run` weekly and
-# only sends a notification. Updating stays a manual, chosen act:
-#   podman auto-update            # pulls AND restarts - run it when you want
-#                                 # the restart, not when the timer says so
-AutoUpdate=registry
+# Pinned digest; updates are deliberate via tools/update-images.py.
 ContainerName=unbound
 Network=host
 Volume=%h/unbound/unbound.conf:/etc/unbound/unbound.conf:ro,Z

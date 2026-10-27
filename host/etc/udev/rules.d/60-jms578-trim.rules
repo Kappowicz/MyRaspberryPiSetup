@@ -1,0 +1,29 @@
+# KIOXIA SSD behind a JMicron JMS578 USB bridge (152d:0578).
+#
+# TWO separate problems, both needed for TRIM to work at all:
+#
+# 1. provisioning_mode defaults to "full" on every boot, which makes the kernel
+#    report no discard support: "fstrim: /: the discard operation is not
+#    supported". Setting it to "unmap" must happen on the scsi_disk device.
+#
+# 2. Once unmap is on, the kernel advertises discard_max_bytes = 4 GiB, but the
+#    bridge rejects UNMAP commands that large - every fstrim then produced
+#    dozens of "critical target error, dev sda, op 0x3:(DISCARD)" while fstrim
+#    itself reported success. Measured 2026-08-30:
+#      4 GiB  -> 61 kernel errors, a few hundred MiB trimmed
+#      64 MiB -> 30 kernel errors, 743 MiB trimmed
+#      8 MiB  ->  0 kernel errors, 425.4 GiB trimmed
+#
+# The size limit CANNOT be set from this rule: at the moment udev processes the
+# block device, discard_max_hw_bytes is still 0 and the write is rejected with
+# "Invalid argument". That is handled by ssd-trim-limit.service, which runs
+# after the device is fully set up.
+ACTION=="add|change", SUBSYSTEM=="scsi_disk", \
+  ATTRS{idVendor}=="152d", ATTRS{idProduct}=="0578", \
+  ATTR{provisioning_mode}="unmap"
+
+# Through the bridge the kernel treats this SSD as a spinning disk, which
+# affects the I/O scheduler and readahead.
+ACTION=="add|change", SUBSYSTEM=="block", KERNEL=="sd[a-z]", \
+  ATTRS{idVendor}=="152d", ATTRS{idProduct}=="0578", \
+  ATTR{queue/rotational}="0"

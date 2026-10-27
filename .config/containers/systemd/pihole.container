@@ -1,19 +1,13 @@
 [Unit]
 Description=Pi-hole DNS Server
-After=network-online.target
+After=network-online.target unbound.service
+Requires=unbound.service
 
 [Container]
 Network=host
-Image=docker.io/pihole/pihole:latest
+Image=docker.io/pihole/pihole:latest@sha256:5b9c8cf51de7d6d3f2240dbe72baf5f06e1fd39cb4d77a99fab4fa13e23bd1be
 
-# Marks this container for `podman auto-update`. The label alone changes
-# nothing on its own: podman-auto-update.timer is MASKED (see README), so
-# no scheduled job ever pulls or restarts anything. What reads the label is
-# image-check.timer, which runs `podman auto-update --dry-run` weekly and
-# only sends a notification. Updating stays a manual, chosen act:
-#   podman auto-update            # pulls AND restarts - run it when you want
-#                                 # the restart, not when the timer says so
-AutoUpdate=registry
+# Pinned digest; updates are deliberate via tools/update-images.py.
 ContainerName=pihole
 
 # Porty (DNS TCP/UDP + Web Interface)
@@ -23,6 +17,9 @@ ContainerName=pihole
 
 # Zmienne srodowiskowe
 Environment=TZ=Europe/Warsaw
+Environment=FTLCONF_dns_upstreams=127.0.0.1#5335
+Environment=FTLCONF_dns_dnssec=true
+Environment=FTLCONF_dns_listeningMode=ALL
 
 # Wolumeny (dane)
 Volume=%h/pihole/etc-pihole:/etc/pihole
@@ -41,7 +38,8 @@ DNSSearch=.
 
 [Service]
 # Important: DNS should come back up automatically after a failure
-Restart=on-failure
+Restart=always
+RestartSec=5
 
 [Install]
 WantedBy=default.target

@@ -64,7 +64,7 @@ send() { # $1=url $2=priority $3=tags $4=title $5=body
 
 # ---------------------------------------------------------------- queue
 
-enqueue() { # $1=channel(alarm|done|info) $2=title $3=body
+enqueue() { # $1=channel(alarm|done|info|done-info) $2=title $3=body
   local channel=$1 title=$2 body=$3 file count
 
   # "|" separates the header fields, so it cannot appear in the title.
@@ -102,6 +102,8 @@ flush_queue() {
     case "$channel" in
       alarm) url=$NTFY_ALARM; prio=urgent;  tags=rotating_light ;;
       done)  url=$NTFY_ALARM; prio=default; tags=white_check_mark ;;
+      # Recovery of an info alert: same quiet topic the alert itself used.
+      done-info) url=$NTFY_INFO; prio=low; tags=white_check_mark ;;
       *)     url=$NTFY_INFO;  prio=low;     tags=information_source ;;
     esac
 
@@ -136,7 +138,7 @@ flush_queue() {
 # ---------------------------------------------------------------- entry point
 
 case "${1:-}" in
-  alarm|done|info)
+  alarm|done|info|done-info)
     [ $# -eq 3 ] || { echo "usage: $0 $1 TITLE BODY" >&2; exit 1; }
     enqueue "$1" "$2" "$3"
     flush_queue ;;
