@@ -160,9 +160,9 @@ if [ "$OLD" -eq 0 ]; then
 fi
 
 # "info", not "alarm": nothing is broken and nothing needs doing tonight.
-"$NOTIFY" info "Nowsze obrazy kontenerow: $COUNT" \
+"$NOTIFY" info "Newer container images: $COUNT" \
 "$(printf '%s' "$STALE")
-Nic nie zostalo pobrane ani zrestartowane.
-Gdy bedziesz chcial: ~/tools/update-images.py --pull; potem swiadomy restart uslug" >/dev/null 2>&1 || true
+Nothing was pulled or restarted.
+When you are ready: ~/tools/update-images.py --pull; then a deliberate restart of the services" >/dev/null 2>&1 || true
 
 exit 0

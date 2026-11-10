@@ -5,7 +5,7 @@ Requires=unbound.service
 
 [Container]
 Network=host
-Image=docker.io/pihole/pihole:latest@sha256:5b9c8cf51de7d6d3f2240dbe72baf5f06e1fd39cb4d77a99fab4fa13e23bd1be
+Image=docker.io/pihole/pihole:latest@sha256:10b5ca14ebd44f693bcb4876d027c7a5270f7ca635280ff8870058f0d59d0549
 
 # Pinned digest; updates are deliberate via tools/update-images.py.
 ContainerName=pihole
@@ -19,9 +19,11 @@ ContainerName=pihole
 Environment=TZ=Europe/Warsaw
 Environment=FTLCONF_dns_upstreams=127.0.0.1#5335
 Environment=FTLCONF_dns_dnssec=true
-Environment=FTLCONF_dns_listeningMode=ALL
+Environment=FTLCONF_dns_listeningMode=LOCAL
+Environment=FTLCONF_ntp_ipv4_active=false
+Environment=FTLCONF_ntp_ipv6_active=false
 
-# Wolumeny (dane)
+# Volumes (data)
 Volume=%h/pihole/etc-pihole:/etc/pihole
 Volume=%h/pihole/etc-dnsmasq.d:/etc/dnsmasq.d
 
@@ -37,6 +39,8 @@ DNS=1.1.1.1
 DNSSearch=.
 
 [Service]
+MemoryHigh=384M
+MemoryMax=512M
 # Important: DNS should come back up automatically after a failure
 Restart=always
 RestartSec=5

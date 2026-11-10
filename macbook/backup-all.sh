@@ -21,6 +21,8 @@ cleanup() { rm -rf "$TMPD"; rmdir "$LOCK"; }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+# Name the failing step: a silent stop here once left three stale generations.
+trap 'echo "backup-all.sh: FAILED at line $LINENO: $BASH_COMMAND" >&2' ERR
 ssh -o ConnectTimeout=10 "$HOST" '$HOME/backup.sh' > "$TMPD/remote.log" 2>&1 || {
   tail -20 "$TMPD/remote.log" >&2; exit 1;
 }
@@ -49,13 +51,18 @@ mkdir -p "$DRIVE"
 cp "$ENC" "$DRIVE/.$NAME.tar.gz.enc.partial"
 cmp "$ENC" "$DRIVE/.$NAME.tar.gz.enc.partial"
 mv "$DRIVE/.$NAME.tar.gz.enc.partial" "$DRIVE/$NAME.tar.gz.enc"
-cat > "$DRIVE/HOW-TO-DECRYPT.txt" <<HELP
+# The help file is a convenience: write it atomically and never let it block rotation.
+cat > "$TMPD/HOW-TO-DECRYPT.txt" <<HELP
 AES-256-CBC, PBKDF2, $ITER iterations. Keep the passphrase in a password manager.
 openssl enc -d -aes-256-cbc -pbkdf2 -iter $ITER -in $NAME.tar.gz.enc | tar xzf - -C /private/restore
 After extraction: cd $NAME && shasum -a 256 -c SHA256SUMS
 The decrypted archive contains secrets. Extract outside cloud storage.
 A matching file in the mounted Drive folder does not prove server-side sync finished.
 HELP
+if ! { cp "$TMPD/HOW-TO-DECRYPT.txt" "$DRIVE/.HOW-TO-DECRYPT.txt.partial" &&
+       mv "$DRIVE/.HOW-TO-DECRYPT.txt.partial" "$DRIVE/HOW-TO-DECRYPT.txt"; }; then
+  echo "WARNING: could not update HOW-TO-DECRYPT.txt on Drive; continuing." >&2
+fi
 # Preserve the existing one-generation policy. Delete only older, completed names.
 ssh "$HOST" "bash -s -- '$NAME'" <<'REMOTE'
 set -euo pipefail

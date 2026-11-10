@@ -1,5 +1,5 @@
 [Container]
-Image=docker.io/grafana/grafana:latest@sha256:ac461fb352abc50da10a51c7d02462e9c05488f11f53f14b3ad79a8145f638a0
+Image=docker.io/grafana/grafana:latest@sha256:868b6ae6642ec09a71a1273d4c0eb952856c1f421137b33e26038e629ee3c208
 
 # Pinned digest; updates are deliberate via tools/update-images.py.
 Network=sensor-net.network
@@ -11,9 +11,17 @@ PublishPort=3000:3000
 EnvironmentFile=%h/.config/secrets/grafana.env
 # Org and bucket for the provisioned datasource ($__env{} in provisioning).
 Environment=INFLUXDB_SYSTEM_BUCKET=system_metrics
+# Quiet logs: at info level every panel query is logged (~8000 lines/day).
+Environment=GF_LOG_LEVEL=warn
+# Only the InfluxDB datasource is used. Grafana 13 auto-installs and starts
+# ~18 plugins (about 350 MB RAM); stop it from doing that and skip loading them.
+Environment=GF_PLUGINS_PREINSTALL_DISABLED=true
+Environment=GF_PLUGINS_DISABLE_PLUGINS=cloudwatch,elasticsearch,grafana-advisor-app,grafana-exploretraces-app,grafana-lokiexplore-app,grafana-metricsdrilldown-app,grafana-postgresql-datasource,grafana-pyroscope-app,grafana-pyroscope-datasource,jaeger,loki,mssql,mysql,opentsdb,prometheus,stackdriver,tempo,zipkin
 EnvironmentFile=%h/.config/site.conf
 
 [Service]
+MemoryHigh=1G
+MemoryMax=1280M
 Restart=always
 
 [Install]

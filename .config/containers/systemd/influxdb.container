@@ -1,5 +1,5 @@
 [Container]
-Image=docker.io/influxdb:2@sha256:05d6fb735bc22449c401094d42846123a24e3325d3a6e092242a45bfd68fff21
+Image=docker.io/influxdb:2@sha256:f026cc41fe69108a82d395c19d82c46e81e5db36fc9aad0f9aa3a96ff04521b2
 
 # Pinned digest; updates are deliberate via tools/update-images.py.
 Network=sensor-net.network
@@ -8,6 +8,8 @@ PublishPort=127.0.0.1:8086:8086
 Environment=INFLUXD_REPORTING_DISABLED=true
 
 [Service]
+MemoryHigh=768M
+MemoryMax=1G
 Restart=always
 
 [Install]

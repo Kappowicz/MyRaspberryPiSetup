@@ -6,7 +6,7 @@ PartOf=influxdb.service
 
 [Container]
 ContainerName=telegraf
-Image=docker.io/library/telegraf:latest@sha256:777cdbf333253be39085bf54c4c305d8360b26c6c882e252f42e74c5035ec2bb
+Image=docker.io/library/telegraf:latest@sha256:a08d378c99c31c1e0b463a57d4926932515e37c08417d7e5376653f26dc9eadd
 
 # Pinned digest; updates are deliberate via tools/update-images.py.
 
@@ -38,6 +38,8 @@ Exec=--config /etc/telegraf/telegraf.conf
 RunInit=yes
 
 [Service]
+MemoryHigh=256M
+MemoryMax=384M
 SuccessExitStatus=143
 Restart=always
 RestartSec=5

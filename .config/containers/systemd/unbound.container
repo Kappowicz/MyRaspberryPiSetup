@@ -1,9 +1,9 @@
 [Unit]
-Description=unbound jako posrednik DoT dla Pi-hole
+Description=unbound as the DoT forwarder for Pi-hole
 After=network-online.target
 
 [Container]
-Image=docker.io/klutchell/unbound:latest@sha256:9a3939ca33d6d3b42b81a70391bb8e43f0a08d2bd7a3fdffb43d427493345c36
+Image=docker.io/klutchell/unbound:latest@sha256:78726b893001147c6e3404ebee7245ccb68dbfd97c43b191b9221809182c3834
 
 # Pinned digest; updates are deliberate via tools/update-images.py.
 ContainerName=unbound
@@ -13,10 +13,12 @@ Volume=%h/unbound/unbound.conf:/etc/unbound/unbound.conf:ro,Z
 Exec=-d -c /etc/unbound/unbound.conf
 
 [Service]
+MemoryHigh=128M
+MemoryMax=256M
 
-# Pi-hole kieruje tu CALY ruch wychodzacy, wiec smierc tego kontenera oznacza
-# brak rozwiazywania nazw w calym domu. Czyste wyjscie tez ma konczyc sie
-# restartem - z tego samego powodu co przy samym Pi-hole.
+# Pi-hole sends ALL outgoing queries here, so this container dying means no
+# name resolution for the whole house. A clean exit must end in a restart
+# too - for the same reason as with Pi-hole itself.
 Restart=always
 RestartSec=5
 

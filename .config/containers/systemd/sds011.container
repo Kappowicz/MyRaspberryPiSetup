@@ -51,6 +51,8 @@ RunInit=yes
 Exec=/bin/sh /app/start.sh
 
 [Service]
+MemoryHigh=96M
+MemoryMax=128M
 # SIGTERM kills the Python process, so podman reports exit code 143 (128+15).
 # systemd treats that as a failure by default, fires OnFailure= and pages you
 # for every deliberate restart. 143 means "stopped on request" here, not a
