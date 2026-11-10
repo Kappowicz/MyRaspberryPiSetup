@@ -1,5 +1,5 @@
 [Unit]
-Description=Puls co 5 minut
+Description=Heartbeat every 5 minutes
 
 [Timer]
 OnBootSec=1min

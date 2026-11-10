@@ -1,5 +1,5 @@
 [Unit]
-Description=Puls do Healthchecks.io (czujnik martwego czlowieka)
+Description=Heartbeat to Healthchecks.io (dead man's switch)
 
 [Service]
 Type=oneshot

@@ -6,10 +6,17 @@ Network=sensor-net.network
 Volume=influxdb-data:/var/lib/influxdb2:Z
 PublishPort=127.0.0.1:8086:8086
 Environment=INFLUXD_REPORTING_DISABLED=true
+# influxd runs as PID 1 in this image and exits 2 on SIGTERM, which is also
+# what a Go panic returns. With tini as PID 1 a requested stop becomes 143.
+RunInit=yes
 
 [Service]
 MemoryHigh=768M
 MemoryMax=1G
+# 143 = stopped on request (see RunInit above). Without this every backup
+# marked the unit failed and fired OnFailure=. 2 is deliberately NOT listed:
+# it would hide real crashes.
+SuccessExitStatus=143
 Restart=always
 
 [Install]

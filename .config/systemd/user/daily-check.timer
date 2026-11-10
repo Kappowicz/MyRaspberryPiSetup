@@ -1,5 +1,5 @@
 [Unit]
-Description=Dobowa kontrola stanu o 07:00
+Description=Daily health check at 07:00
 
 [Timer]
 OnCalendar=*-*-* 07:00:00

@@ -1,5 +1,5 @@
 [Unit]
-Description=Dobowa kontrola stanu malinki
+Description=Daily health check of the Pi
 
 [Service]
 Type=oneshot
