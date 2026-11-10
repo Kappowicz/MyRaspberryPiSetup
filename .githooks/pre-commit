@@ -54,6 +54,16 @@ SITE_CONF="$HOME/.config/site.conf"
 STATION=""
 [ -r "$SITE_CONF" ] && STATION=$(sed -n 's/^[[:space:]]*GIOS_STATION_ID=\([0-9][0-9]*\).*/\1/p' "$SITE_CONF" | head -1)
 
+# The ISP's DHCP search suffix is a location too: it names the ISP and the
+# region. On 2026-11-10 it was found hard-coded as a regex in
+# pihole/load-rules.sh, in commits that had not been pushed yet. Same approach:
+# read the real value from site.conf and refuse it anywhere, with the dots
+# plain or backslash-escaped (which is how it hid in that regex).
+SUFFIX=""
+[ -r "$SITE_CONF" ] && SUFFIX=$(sed -n 's/^[[:space:]]*DHCP_SEARCH_SUFFIX=//p' "$SITE_CONF" | tr -d "\"'" | head -1)
+SUFFIX_RE=""
+[ -n "$SUFFIX" ] && SUFFIX_RE=$(printf '%s' "$SUFFIX" | sed 's/\./\\\\*\\./g')
+
 BAD_LOC=0
 for p in $(git diff --cached --name-only --diff-filter=ACM); do
   case "$p" in .githooks/pre-commit|.githooks/commit-msg) continue ;; esac
@@ -63,6 +73,10 @@ for p in $(git diff --cached --name-only --diff-filter=ACM); do
   if [ -n "$STATION" ]; then
     # Word boundaries: a bare number must not match inside a longer one.
     MORE=$(printf '%s\n' "$C" | grep -nE "(^|[^0-9])$STATION([^0-9]|\$)")
+    [ -n "$MORE" ] && HITS=$(printf '%s\n%s' "$HITS" "$MORE")
+  fi
+  if [ -n "$SUFFIX_RE" ]; then
+    MORE=$(printf '%s\n' "$C" | grep -niE "$SUFFIX_RE")
     [ -n "$MORE" ] && HITS=$(printf '%s\n%s' "$HITS" "$MORE")
   fi
   HITS=$(printf '%s\n' "$HITS" | grep -v '^$' | sort -u -t: -k1,1n)
@@ -81,7 +95,7 @@ if [ "$BAD" = 1 ] || [ "$BAD_LOC" = 1 ]; then
     echo "template under examples/ goes into the repository."
   }
   [ "$BAD_LOC" = 1 ] && {
-    echo "The station id is site-specific and belongs ONLY in ~/.config/site.conf,"
+    echo "The station id and the DHCP search suffix are site-specific and belong ONLY in ~/.config/site.conf,"
     echo "which is not tracked. In the repository it stays a placeholder, and code"
     echo "reads it from the environment with no fallback."
   }
