@@ -24,6 +24,7 @@ Containers run **rootless** via podman + quadlets, as user services.
 | `macbook/` | portable download/encryption script and config template |
 | `grafana/` | dashboard templates and provisioning |
 | `telegraf/` | Telegraf host and hardware metrics collector configuration |
+| `nucleo-bridge.py` | NUCLEO-G491RE bridge: SCD41 CO2/temp/humidity into InfluxDB, air data and calendar out to its e-ink display (`nucleo-bridge.service`) |
 | `examples/` | templates: the secret files and `site.conf` |
 
 ## What this repository does NOT contain
@@ -34,6 +35,9 @@ That matters more than the list above.
   `~/.config/secrets/*.env` (mode 600), never in git
 - **measurement data** — the `influxdb-data` and `grafana-data` volumes; you
   restore those from a backup, not from here
+- **calendar feeds** — `~/.config/secrets/calendars.conf` (private iCal URLs,
+  optionally `LABEL=url`) and `extra_events.json` for the Nucleo bridge; both
+  come back from the backup
 - **the Pi-hole query database** (`pihole-FTL.db`) — it rebuilds itself, the
   history is lost
 - **`pihole.toml`** — it holds the password hash; private customization is recovered from backup
@@ -55,6 +59,9 @@ $EDITOR ~/.config/site.conf
 | `LOCATION` | tag written for that station's data (default `city`) |
 | `SENSOR_LOCATION` | tag written for your own SDS011 (default `home`) |
 | `DHCP_SEARCH_SUFFIX` | the search suffix your ISP router hands out, if any. Leave empty if none |
+| `CALENDAR_GREY_LABELS`, `CALENDAR_GREY_PREFIX` | which calendars the Nucleo draws in grey, and the title prefix for them |
+| `NUCLEO_SERIAL_DEV` | optional; the ST-LINK serial device if more than one is connected |
+| `PRIVATE_WORDS` | names and other words `.githooks/pre-commit` refuses in any committed file |
 
 The quadlets read this file directly as an `EnvironmentFile=`, `alerts.conf`
 sources it, and the Grafana dashboard is **rendered** from

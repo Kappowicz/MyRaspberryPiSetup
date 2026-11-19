@@ -25,3 +25,16 @@ SENSOR_LOCATION=home
 DHCP_SEARCH_SUFFIX=
 
 INFLUXDB_SYSTEM_BUCKET=system_metrics
+
+# --- Nucleo e-ink calendar (nucleo-bridge.py) -------------------------------
+# Calendars whose label in secrets/calendars.conf contains one of these
+# (comma-separated, case-insensitive) are drawn in grey, titles prefixed.
+CALENDAR_GREY_LABELS=
+CALENDAR_GREY_PREFIX=
+# Optional: the ST-LINK serial device, if more than one is connected.
+#NUCLEO_SERIAL_DEV=
+
+# --- Privacy ----------------------------------------------------------------
+# Comma-separated words (e.g. people's names) .githooks/pre-commit refuses in
+# any committed file. Kept here because the hook itself is committed.
+PRIVATE_WORDS=

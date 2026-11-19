@@ -167,3 +167,5 @@ host/etc/apt/*
 !host/etc/smartd.conf
 !host/etc/modprobe.d/
 !host/etc/modprobe.d/disable-sound.conf
+!nucleo-bridge.py
+!.config/systemd/user/nucleo-bridge.service

@@ -1,0 +1,14 @@
+[Unit]
+Description=Nucleo-G491RE SCD41 + E-Ink Bridge to InfluxDB
+After=influxdb.service
+
+[Service]
+ExecStart=/usr/bin/python3 /home/user/nucleo-bridge.py
+Restart=always
+RestartSec=3
+OnFailure=alert@%N.service
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Install]
+WantedBy=default.target

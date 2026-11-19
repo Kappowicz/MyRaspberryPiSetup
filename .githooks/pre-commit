@@ -64,6 +64,19 @@ SUFFIX=""
 SUFFIX_RE=""
 [ -n "$SUFFIX" ] && SUFFIX_RE=$(printf '%s' "$SUFFIX" | sed 's/\./\\\\*\\./g')
 
+# People's names and hardware serials. On 2026-11-19 an unpushed commit of
+# nucleo-bridge.py carried two first names, the GIOS town as a default and the
+# ST-LINK serial number. The names live in PRIVATE_WORDS in site.conf (comma-
+# separated) for the same reason as the station id: this file is public.
+PRIVATE_RE=""
+[ -r "$SITE_CONF" ] && PRIVATE_RE=$(sed -n 's/^[[:space:]]*PRIVATE_WORDS=//p' "$SITE_CONF" | tr -d "\"' " | head -1 | sed 's/,,*/|/g; s/^|//; s/|$//')
+# The real town: whatever LOCATION is set to, unless it is the neutral default.
+TOWN=""
+[ -r "$SITE_CONF" ] && TOWN=$(sed -n 's/^[[:space:]]*LOCATION=//p' "$SITE_CONF" | tr -d "\"' " | head -1)
+[ "$TOWN" = city ] && TOWN=""
+[ -n "$TOWN" ] && PRIVATE_RE="${PRIVATE_RE:+$PRIVATE_RE|}$TOWN"
+SERIAL_RE='STLINK-V3_[0-9A-F]{16,}'
+
 BAD_LOC=0
 for p in $(git diff --cached --name-only --diff-filter=ACM); do
   case "$p" in .githooks/pre-commit|.githooks/commit-msg) continue ;; esac
@@ -79,6 +92,12 @@ for p in $(git diff --cached --name-only --diff-filter=ACM); do
     MORE=$(printf '%s\n' "$C" | grep -niE "$SUFFIX_RE")
     [ -n "$MORE" ] && HITS=$(printf '%s\n%s' "$HITS" "$MORE")
   fi
+  if [ -n "$PRIVATE_RE" ]; then
+    MORE=$(printf '%s\n' "$C" | grep -niwE "$PRIVATE_RE")
+    [ -n "$MORE" ] && HITS=$(printf '%s\n%s' "$HITS" "$MORE")
+  fi
+  MORE=$(printf '%s\n' "$C" | grep -nE "$SERIAL_RE")
+  [ -n "$MORE" ] && HITS=$(printf '%s\n%s' "$HITS" "$MORE")
   HITS=$(printf '%s\n' "$HITS" | grep -v '^$' | sort -u -t: -k1,1n)
   [ -n "$HITS" ] || continue
 
@@ -95,7 +114,7 @@ if [ "$BAD" = 1 ] || [ "$BAD_LOC" = 1 ]; then
     echo "template under examples/ goes into the repository."
   }
   [ "$BAD_LOC" = 1 ] && {
-    echo "The station id and the DHCP search suffix are site-specific and belong ONLY in ~/.config/site.conf,"
+    echo "The station id, DHCP search suffix, town, private names and device serials are site-specific and belong ONLY in ~/.config/site.conf,"
     echo "which is not tracked. In the repository it stays a placeholder, and code"
     echo "reads it from the environment with no fallback."
   }
