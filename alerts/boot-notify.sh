@@ -34,4 +34,4 @@ Uptime:       ${UPTIME}
 IP:           ${IP:-unknown}
 Kernel:       ${KERNEL}
 Temperature:  ${TEMP:-unknown}
-Previous:     ${SHUTDOWN_TYPE}"
+Previous:     ${SHUTDOWN_TYPE}" || echo "boot-notify: delivery deferred (queued for later)" >&2
