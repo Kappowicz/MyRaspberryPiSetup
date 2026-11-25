@@ -5,21 +5,24 @@ Requires=unbound.service
 
 [Container]
 Network=host
-Image=docker.io/pihole/pihole:latest@sha256:10b5ca14ebd44f693bcb4876d027c7a5270f7ca635280ff8870058f0d59d0549
+Image=docker.io/pihole/pihole:latest@sha256:13089e5c4d33c5cd8eb7b011949a380145f3ff1405dea24c81dd54dcb255b792
 
 # Pinned digest; updates are deliberate via tools/update-images.py.
 ContainerName=pihole
 
-# Porty (DNS TCP/UDP + Web Interface)
+# Ports (DNS TCP/UDP + web interface) - unused with Network=host
 #PublishPort=53:53/tcp
 #PublishPort=53:53/udp
 #PublishPort=80:80/tcp
 
-# Zmienne srodowiskowe
+# Environment
 Environment=TZ=Europe/Warsaw
 Environment=FTLCONF_dns_upstreams=127.0.0.1#5335
 Environment=FTLCONF_dns_dnssec=true
-Environment=FTLCONF_dns_listeningMode=LOCAL
+Environment=FTLCONF_dns_listeningMode=ALL
+# ALL, not LOCAL: tailnet clients reach this host through the advertised
+# subnet route with 100.x source addresses, which LOCAL (one hop away only)
+# refuses. Inbound from the internet is blocked by the ISP router.
 Environment=FTLCONF_ntp_ipv4_active=false
 Environment=FTLCONF_ntp_ipv6_active=false
 

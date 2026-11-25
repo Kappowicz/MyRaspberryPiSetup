@@ -74,6 +74,23 @@ Outside this file, the only site-specific thing left is the LAN address in the
 so set them to your LAN address, or scope the ports with an `nftables` ruleset,
 before exposing the machine to a network you do not control.
 
+## Tailscale
+
+The phone uses this Pi-hole as its DNS away from home, over Tailscale.
+Tailscale state is not in this repository or in the backup; after a restore,
+log in again and re-advertise the route:
+
+```bash
+sudo tailscale up
+sudo tailscale set --advertise-routes=<lan-ip>/32   # then approve it in the admin console
+```
+
+Two pieces in this repository depend on it: `host/etc/sysctl.d/99-tailscale.conf`
+(IPv4 forwarding, required for the subnet route) and
+`FTLCONF_dns_listeningMode=ALL` in `pihole.container` (`LOCAL` refuses queries
+from tailnet addresses). `alerts/check.sh` raises an alarm when a query over the
+tailnet address goes unanswered.
+
 ## Recovery
 
 Follow [RECOVERY.md](RECOVERY.md) for fresh setup and data restoration.

@@ -16,7 +16,7 @@ copy() {
   if [ -e "/$relative" ]; then mkdir -p "$SAVE/$(dirname "$relative")"; cp -a "/$relative" "$SAVE/$relative"; fi
   install -D -m 644 "$BASE/$relative" "/$relative"
 }
-for path in etc/sysctl.d/podman-ports.conf etc/sysctl.d/99-tuning.conf etc/systemd/system.conf.d/watchdog.conf \
+for path in etc/sysctl.d/podman-ports.conf etc/sysctl.d/99-tuning.conf etc/sysctl.d/99-tailscale.conf etc/systemd/system.conf.d/watchdog.conf \
     etc/systemd/journald.conf.d/90-persistent.conf etc/apt/apt.conf.d/52unattended-upgrades-local \
     etc/systemd/system/sysstat-collect.timer.d/override.conf etc/default/sysstat etc/sysstat/sysstat etc/smartd.conf \
     etc/udev/rules.d/60-jms578-trim.rules etc/systemd/system/ssd-trim-limit.service usr/local/sbin/ssd-trim-limit.sh; do copy "$path"; done
