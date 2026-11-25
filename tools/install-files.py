@@ -5,7 +5,7 @@ import pathlib
 import shutil
 import sys
 
-PATHS = ['.config/containers/systemd', '.config/systemd/user', '.config/alerts.conf', '.githooks', 'alerts', 'grafana', 'examples', 'city-app', 'sensor-app', 'telegraf', 'unbound', 'pihole/load-rules.sh', 'host', 'tools', 'macbook', 'install.sh', 'healthcheck.sh', 'backup.sh', 'notify.sh', 'rebuild-images.sh', 'README.md', 'RECOVERY.md']
+PATHS = ['.config/containers/systemd', '.config/systemd/user', '.config/alerts.conf', '.githooks', 'alerts', 'grafana', 'examples', 'city-app', 'sensor-app', 'telegraf', 'unbound', 'pihole/load-rules.sh', 'host', 'tools', 'macbook', 'install.sh', 'healthcheck.sh', 'backup.sh', 'notify.sh', 'rebuild-images.sh', 'nucleo-bridge.py', 'README.md', 'RECOVERY.md']
 
 def install_files(source, home):
     source, home = pathlib.Path(source).resolve(), pathlib.Path(home).resolve()

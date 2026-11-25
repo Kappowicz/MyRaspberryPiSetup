@@ -84,7 +84,7 @@ tar_ok sudo tar -czf "$WORK/pihole-conf.tar.gz" --exclude='pihole-FTL.db*' \
   --exclude='gravity.db*' --exclude='gravity_old.db*' -C "$HOME" pihole
 sudo chown "$(id -u):$(id -g)" "$WORK/pihole-conf.tar.gz"
 CANDIDATES=(install.sh LICENSE sensor-app city-app unbound telegraf alerts grafana .githooks examples \
-  healthcheck.sh backup.sh notify.sh .gitignore README.md RECOVERY.md rebuild-images.sh host tools macbook \
+  healthcheck.sh backup.sh notify.sh .gitignore README.md RECOVERY.md rebuild-images.sh nucleo-bridge.py host tools macbook \
   .config/containers/systemd .config/systemd/user .config/secrets .config/site.conf .config/alerts.conf .ssh)
 PACK=()
 for path in "${CANDIDATES[@]}"; do
@@ -96,7 +96,7 @@ SYS_CANDIDATES=(etc/systemd/journald.conf.d etc/apt/apt.conf.d/52unattended-upgr
   etc/systemd/system/sysstat-collect.timer.d etc/default/sysstat etc/sysstat/sysstat etc/smartd.conf \
   etc/udev/rules.d/60-jms578-trim.rules etc/systemd/system/ssd-trim-limit.service usr/local/sbin/ssd-trim-limit.sh \
   etc/systemd/system.conf.d/watchdog.conf etc/nsswitch.conf etc/cloud/cloud-init.disabled \
-  etc/modprobe.d/disable-sound.conf etc/sysctl.d/podman-ports.conf etc/sysctl.d/99-tuning.conf \
+  etc/modprobe.d/disable-sound.conf etc/sysctl.d/podman-ports.conf etc/sysctl.d/99-tuning.conf etc/sysctl.d/99-tailscale.conf \
   boot/firmware/config.txt etc/subuid etc/subgid)
 SYS_PACK=()
 for path in "${SYS_CANDIDATES[@]}"; do
