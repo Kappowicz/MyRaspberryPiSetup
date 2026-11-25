@@ -35,6 +35,7 @@ REPEAT_INFO=86400
 # Thresholds. Derived from the write interval, with headroom.
 SDS011_MAX=2100     # 35 min; the sensor writes every 10 min (sleep 585+15)
 GIOS_MAX=10800      # 3 h; GIOS publishes hourly, usually ~30 min behind
+TELEGRAF_MAX=180    # 3 min; telegraf writes system_metrics every 10 s
 INFLUX_DEBOUNCE=600 # 10 min; a single failed query is not an outage
 
 # Backlog first. If the internet just came back, this is the moment old
@@ -507,6 +508,30 @@ Check: systemctl --user status influxdb; podman logs --tail 50 systemd-influxdb"
 fi
 
 evaluate influxdb ok "$INFLUX_DEBOUNCE" alarm "InfluxDB is not answering" ""
+
+# --- Telegraf / system_metrics: writes every 10 s -------------------------
+# InfluxDB queries can still succeed even when its WAL writer is broken
+# (e.g. after a transient ENOSPC). Checking system_metrics freshness catches
+# both Telegraf outages and InfluxDB write-path failures within minutes.
+T=$(flux "from(bucket:\"system_metrics\")
+  |> range(start:-30d)
+  |> filter(fn:(r)=> r._measurement==\"mem\" and r._field==\"available\")
+  |> last()
+  |> map(fn:(r)=>({ t: int(v: r._time)/1000000000 }))
+  |> keep(columns:[\"t\"])" | tr -d "\r" | awk -F, "/^,_result/{print \$NF}" | tail -1)
+case "$T" in
+  ""|*[!0-9]*) T_AGE=NONE ;;
+  *) T_AGE=$(( $(date +%s) - T )) ;;
+esac
+say "influx/telegraf: $T_AGE"
+if [ "$T_AGE" = NONE ] || [ "$T_AGE" -gt "$TELEGRAF_MAX" ]; then
+  evaluate telegraf_metrics bad 0 alarm \
+    "System metrics (Telegraf) have stopped updating" \
+    "No new system_metrics $([ "$T_AGE" = NONE ] && echo "- the series is completely empty" || echo "for $(( T_AGE / 60 )) min"). Threshold: $(( TELEGRAF_MAX / 60 )) min (Telegraf writes every 10 s).
+Check: systemctl --user status telegraf influxdb; podman logs --tail 30 telegraf; podman logs --tail 30 systemd-influxdb"
+else
+  evaluate telegraf_metrics ok 0 alarm "System metrics (Telegraf) have stopped updating" ""
+fi
 
 # --- local SDS011 sensor: your hardware, your fix -> alarm
 if [ "$W" = NONE ] || [ "$W" -gt "$SDS011_MAX" ]; then
